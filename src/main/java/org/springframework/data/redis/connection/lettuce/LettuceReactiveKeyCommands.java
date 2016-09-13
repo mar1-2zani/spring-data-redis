@@ -162,4 +162,20 @@ public class LettuceReactiveKeyCommands implements ReactiveRedisConnection.React
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveKeyCommands#rename(org.reactivestreams.Publisher, java.util.function.Supplier)
+	 */
+	@Override
+	public Flux<BooleanResponse<ByteBuffer>> renameNX(Publisher<ByteBuffer> keys, Supplier<ByteBuffer> newName) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(keys).flatMap(key -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.renamenx(key.array(), newName.get().array())).map(value -> new BooleanResponse<>(key, value));
+			});
+		});
+	}
 }

@@ -887,6 +887,33 @@ public interface ReactiveRedisConnection extends Closeable {
 		Flux<BooleanResponse<ByteBuffer>> rename(Publisher<ByteBuffer> keys, Supplier<ByteBuffer> newName);
 
 		/**
+		 * Rename key {@code oleName} to {@code newName} only if {@code newName} does not exist.
+		 *
+		 * @param key must not be {@literal null}.
+		 * @param newName must not be {@literal null}.
+		 * @return
+		 */
+		default Mono<Boolean> renameNX(ByteBuffer key, ByteBuffer newName) {
+
+			try {
+				Assert.notNull(key, "key must not be null");
+			} catch (IllegalArgumentException e) {
+				return Mono.error(e);
+			}
+
+			return renameNX(Mono.just(key), () -> newName).next().map(BooleanResponse::getOutput);
+		}
+
+		/**
+		 * Rename key {@code oleName} to {@code newName} only if {@code newName} does not exist.
+		 *
+		 * @param keys must not be {@literal null}.
+		 * @param newName must not be {@literal null}.
+		 * @return
+		 */
+		Flux<BooleanResponse<ByteBuffer>> renameNX(Publisher<ByteBuffer> keys, Supplier<ByteBuffer> newName);
+
+		/**
 		 * Delete {@literal key}.
 		 * 
 		 * @param key must not be {@literal null}.

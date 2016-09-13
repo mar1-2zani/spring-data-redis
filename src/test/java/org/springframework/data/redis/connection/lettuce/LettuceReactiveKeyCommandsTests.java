@@ -125,6 +125,31 @@ public class LettuceReactiveKeyCommandsTests extends LettuceReactiveCommandsTest
 	 * @see DATAREDIS-525
 	 */
 	@Test
+	public void renameNXShouldAlterKeyNameCorrectly() {
+
+		nativeCommands.set(KEY_1, VALUE_2);
+
+		assertThat(connection.keyCommands().rename(KEY_1_BBUFFER, KEY_2_BBUFFER).block(), is(true));
+		assertThat(nativeCommands.exists(KEY_2), is(true));
+		assertThat(nativeCommands.exists(KEY_1), is(false));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void renameNXShouldNotAlterExistingKeyName() {
+
+		nativeCommands.set(KEY_1, VALUE_2);
+		nativeCommands.set(KEY_2, VALUE_2);
+
+		assertThat(connection.keyCommands().renameNX(KEY_1_BBUFFER, KEY_2_BBUFFER).block(), is(false));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
 	public void shouldDeleteKeyCorrectly() {
 
 		nativeCommands.set(KEY_1, VALUE_1);
