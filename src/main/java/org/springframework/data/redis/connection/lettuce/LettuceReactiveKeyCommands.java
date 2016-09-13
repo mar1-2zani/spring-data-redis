@@ -17,6 +17,7 @@ package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
@@ -143,5 +144,22 @@ public class LettuceReactiveKeyCommands implements ReactiveRedisConnection.React
 		return connection.execute(cmd -> {
 			return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter().convert(cmd.randomkey().map(ByteBuffer::wrap));
 		}).next();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveKeyCommands#rename(org.reactivestreams.Publisher, java.util.function.Supplier)
+	 */
+	@Override
+	public Flux<BooleanResponse<ByteBuffer>> rename(Publisher<ByteBuffer> keys, Supplier<ByteBuffer> newName) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(keys).flatMap(key -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.rename(key.array(), newName.get().array()).map(LettuceConverters::stringToBoolean))
+						.map(value -> new BooleanResponse<>(key, value));
+			});
+		});
 	}
 }
