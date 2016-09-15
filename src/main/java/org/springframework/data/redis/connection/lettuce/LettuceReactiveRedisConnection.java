@@ -21,7 +21,10 @@ import org.reactivestreams.Publisher;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
+import org.springframework.data.redis.connection.ReactiveKeyCommands;
+import org.springframework.data.redis.connection.ReactiveNumberCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection;
+import org.springframework.data.redis.connection.ReactiveStringCommands;
 import org.springframework.data.repository.util.QueryExecutionConverters.RxJava1ObservableToMonoConverter;
 import org.springframework.util.Assert;
 

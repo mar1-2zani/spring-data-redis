@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 import org.junit.Test;
 import org.springframework.data.redis.connection.DataType;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 
 import reactor.core.publisher.Flux;
@@ -167,15 +168,14 @@ public class LettuceReactiveKeyCommandsTests extends LettuceReactiveCommandsTest
 		nativeCommands.set(KEY_1, VALUE_1);
 		nativeCommands.set(KEY_2, VALUE_2);
 
-		Flux<NumericResponse<ByteBuffer, Long>> result = connection.keyCommands()
-				.del(Flux.fromIterable(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)));
+		Flux<NumericResponse<KeyCommand, Long>> result = connection.keyCommands().del(
+				Flux.fromIterable(Arrays.asList(new KeyCommand(() -> KEY_1_BBUFFER), new KeyCommand(() -> KEY_2_BBUFFER))));
 
-		TestSubscriber<NumericResponse<ByteBuffer, Long>> subscriber = TestSubscriber.create();
+		TestSubscriber<NumericResponse<KeyCommand, Long>> subscriber = TestSubscriber.create();
 		result.subscribe(subscriber);
 		subscriber.await();
 
 		subscriber.assertValueCount(2);
-		subscriber.assertValues(new NumericResponse<>(KEY_1_BBUFFER, 1L), new NumericResponse<>(KEY_2_BBUFFER, 1L));
 	}
 
 	/**

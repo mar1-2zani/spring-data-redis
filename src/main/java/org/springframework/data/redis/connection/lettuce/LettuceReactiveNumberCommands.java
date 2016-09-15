@@ -15,12 +15,10 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
-import java.nio.ByteBuffer;
-import java.util.function.Supplier;
-
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveNumberCommands;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
-import org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveNumberCommands;
 import org.springframework.util.Assert;
 import org.springframework.util.NumberUtils;
 
@@ -51,13 +49,13 @@ public class LettuceReactiveNumberCommands implements ReactiveNumberCommands {
 	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveNumberCommands#incr(org.reactivestreams.Publisher)
 	 */
 	@Override
-	public Flux<NumericResponse<ByteBuffer, Long>> incr(Publisher<ByteBuffer> keys) {
+	public Flux<NumericResponse<KeyCommand, Long>> incr(Publisher<KeyCommand> commands) {
 
 		return connection.execute(cmd -> {
 
-			return Flux.from(keys).flatMap(key -> {
-				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.incr(key.array()))
-						.map(value -> new NumericResponse<>(key, value));
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.incr(command.getKey().array()))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
 	}
@@ -67,26 +65,26 @@ public class LettuceReactiveNumberCommands implements ReactiveNumberCommands {
 	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveNumberCommands#incrBy(org.reactivestreams.Publisher, java.util.function.Supplier)
 	 */
 	@Override
-	public <T extends Number> Flux<NumericResponse<ByteBuffer, T>> incrBy(Publisher<ByteBuffer> keys, Supplier<T> value) {
+	public <T extends Number> Flux<NumericResponse<IncrByCommand<T>, T>> incrBy(Publisher<IncrByCommand<T>> commands) {
 
 		return connection.execute(cmd -> {
 
-			return Flux.from(keys).flatMap(key -> {
+			return Flux.from(commands).flatMap(command -> {
 
-				T incrBy = value.get();
+				T incrBy = command.getValue();
 
 				Assert.notNull(incrBy, "Value for INCRBY must not be null.");
 
 				Observable<? extends Number> result = null;
 				if (incrBy instanceof Double || incrBy instanceof Float) {
-					result = cmd.incrbyfloat(key.array(), incrBy.doubleValue());
+					result = cmd.incrbyfloat(command.getKey().array(), incrBy.doubleValue());
 				} else {
-					result = cmd.incrby(key.array(), incrBy.longValue());
+					result = cmd.incrby(command.getKey().array(), incrBy.longValue());
 				}
 
 				return LettuceReactiveRedisConnection.<T> monoConverter()
 						.convert(result.map(val -> NumberUtils.convertNumberToTargetClass(val, incrBy.getClass())))
-						.map(res -> new NumericResponse<>(key, res));
+						.map(res -> new NumericResponse<>(command, res));
 			});
 		});
 	}
@@ -96,13 +94,13 @@ public class LettuceReactiveNumberCommands implements ReactiveNumberCommands {
 	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveNumberCommands#decr(org.reactivestreams.Publisher)
 	 */
 	@Override
-	public Flux<NumericResponse<ByteBuffer, Long>> decr(Publisher<ByteBuffer> keys) {
+	public Flux<NumericResponse<KeyCommand, Long>> decr(Publisher<KeyCommand> commands) {
 
 		return connection.execute(cmd -> {
 
-			return Flux.from(keys).flatMap(key -> {
-				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.decr(key.array()))
-						.map(value -> new NumericResponse<>(key, value));
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.decr(command.getKey().array()))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
 	}
@@ -112,26 +110,26 @@ public class LettuceReactiveNumberCommands implements ReactiveNumberCommands {
 	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveNumberCommands#decrBy(org.reactivestreams.Publisher, java.util.function.Supplier)
 	 */
 	@Override
-	public <T extends Number> Flux<NumericResponse<ByteBuffer, T>> decrBy(Publisher<ByteBuffer> keys, Supplier<T> value) {
+	public <T extends Number> Flux<NumericResponse<DecrByCommand<T>, T>> decrBy(Publisher<DecrByCommand<T>> commands) {
 
 		return connection.execute(cmd -> {
 
-			return Flux.from(keys).flatMap(key -> {
+			return Flux.from(commands).flatMap(command -> {
 
-				T decrBy = value.get();
+				T decrBy = command.getValue();
 
 				Assert.notNull(decrBy, "Value for DECRBY must not be null.");
 
 				Observable<? extends Number> result = null;
 				if (decrBy instanceof Double || decrBy instanceof Float) {
-					result = cmd.incrbyfloat(key.array(), decrBy.doubleValue() * (-1.0D));
+					result = cmd.incrbyfloat(command.getKey().array(), decrBy.doubleValue() * (-1.0D));
 				} else {
-					result = cmd.decrby(key.array(), decrBy.longValue());
+					result = cmd.decrby(command.getKey().array(), decrBy.longValue());
 				}
 
 				return LettuceReactiveRedisConnection.<T> monoConverter()
 						.convert(result.map(val -> NumberUtils.convertNumberToTargetClass(val, decrBy.getClass())))
-						.map(res -> new NumericResponse<>(key, res));
+						.map(res -> new NumericResponse<>(command, res));
 			});
 		});
 	}

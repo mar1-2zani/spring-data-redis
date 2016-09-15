@@ -1,0 +1,957 @@
+/*
+ * Copyright 2016 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.springframework.data.redis.connection;
+
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+
+import org.reactivestreams.Publisher;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.Command;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.RedisStringCommands.BitOperation;
+import org.springframework.data.redis.connection.RedisStringCommands.SetOption;
+import org.springframework.data.redis.core.types.Expiration;
+import org.springframework.util.Assert;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+/**
+ * @author Christoph Strobl
+ * @since 2.0
+ */
+public interface ReactiveStringCommands {
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class SetCommand extends KeyCommand {
+
+		private Supplier<ByteBuffer> value;
+		private Supplier<Expiration> expiration;
+		private Supplier<SetOption> option;
+
+		public SetCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value, Supplier<Expiration> expiration,
+				Supplier<SetOption> option) {
+
+			super(key);
+			this.value = value;
+			this.expiration = expiration;
+			this.option = option;
+		}
+
+		public static ReactiveStringCommands.SetCommand set(ByteBuffer key) {
+			return set(() -> key);
+		}
+
+		public static ReactiveStringCommands.SetCommand set(Supplier<ByteBuffer> key) {
+			return new SetCommand(key, null, null, null);
+		}
+
+		public ReactiveStringCommands.SetCommand value(ByteBuffer value) {
+			return value(() -> value);
+		}
+
+		public ReactiveStringCommands.SetCommand value(Supplier<ByteBuffer> value) {
+			return new SetCommand(getKeySupplier(), value, expiration, option);
+		}
+
+		public ReactiveStringCommands.SetCommand expiring(Expiration expiration) {
+			return expiring(() -> expiration);
+		}
+
+		public ReactiveStringCommands.SetCommand expiring(Supplier<Expiration> expiration) {
+			return new SetCommand(getKeySupplier(), value, expiration, option);
+		}
+
+		public ReactiveStringCommands.SetCommand withSetOption(SetOption option) {
+			return withSetOption(option);
+		}
+
+		public ReactiveStringCommands.SetCommand withSetOption(Supplier<SetOption> option) {
+			return new SetCommand(getKeySupplier(), value, expiration, option);
+		}
+
+		public ByteBuffer getValue() {
+			return value != null ? value.get() : null;
+		}
+
+		public Expiration getExpiration() {
+			return hasExpiration() ? expiration.get() : null;
+		}
+
+		public SetOption getOption() {
+			return hasOption() ? option.get() : null;
+		}
+
+		public boolean hasExpiration() {
+			return expiration != null;
+		}
+
+		public boolean hasOption() {
+			return option != null;
+		}
+	}
+
+	/**
+	 * Set {@literal value} for {@literal key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> set(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return set(Mono.just(SetCommand.set(key).value(value))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set {@literal value} for {@literal key} with {@literal expiration} and {@literal options}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @param expiration must not be {@literal null}.
+	 * @param option must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> set(ByteBuffer key, ByteBuffer value, Expiration expiration, SetOption option) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return set(Mono.just(SetCommand.set(key).value(value).withSetOption(option).expiring(expiration))).next()
+				.map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set each and every {@link KeyValue} item separately.
+	 *
+	 * @param values must not be {@literal null}.
+	 * @return {@link Flux} of {@link SetResponse} holding the {@link KeyValue} pair to set along with the command result.
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.SetCommand>> set(Publisher<ReactiveStringCommands.SetCommand> commands);
+
+	/**
+	 * Get single element stored at {@literal key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return empty {@link ByteBuffer} in case {@literal key} does not exist.
+	 */
+	default Mono<ByteBuffer> get(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return get(Mono.just(new KeyCommand(() -> key))).next().map((result) -> result.getOutput());
+	}
+
+	/**
+	 * Get elements one by one.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return {@link Flux} of {@link GetResponse} holding the {@literal key} to get along with the value retrieved.
+	 */
+	Flux<ByteBufferResponse<KeyCommand>> get(Publisher<KeyCommand> keys);
+
+	/**
+	 * Set {@literal value} for {@literal key} and return the existing value.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> getSet(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return getSet(Mono.just(SetCommand.set(key).value(value))).next().map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Set {@literal value} for {@literal key} and return the existing value one by one.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return {@link Flux} of {@link GetSetResponse} holding the {@link KeyValue} pair to set along with the previously
+	 *         existing value.
+	 */
+	Flux<ByteBufferResponse<ReactiveStringCommands.SetCommand>> getSet(
+			Publisher<ReactiveStringCommands.SetCommand> command);
+
+	/**
+	 * Get multiple values in one batch.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> mGet(List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(keys, "Keys must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return mGet(Mono.just(keys)).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get multiple values at in batches.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<List<ByteBuffer>, ByteBuffer>> mGet(Publisher<List<ByteBuffer>> keysets);
+
+	/**
+	 * Set {@code value} for {@code key}, only if {@code key} does not exist.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> setNX(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "Keys must not be null!");
+			Assert.notNull(value, "Keys must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return setNX(Mono.just(SetCommand.set(key).value(value))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set {@code key value} pairs, only if {@code key} does not exist.
+	 *
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.SetCommand>> setNX(Publisher<ReactiveStringCommands.SetCommand> values);
+
+	/**
+	 * Set {@code key value} pair and {@link Expiration}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @param expireTimeout must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> setEX(ByteBuffer key, ByteBuffer value, Expiration expireTimeout) {
+
+		try {
+			Assert.notNull(key, "Keys must not be null!");
+			Assert.notNull(value, "Keys must not be null!");
+			Assert.notNull(key, "ExpireTimeout must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return setEX(Mono.just(SetCommand.set(key).value(value).expiring(expireTimeout))).next()
+				.map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set {@code key value} pairs and {@link Expiration}.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param expireTimeout must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.SetCommand>> setEX(Publisher<ReactiveStringCommands.SetCommand> command);
+
+	/**
+	 * Set {@code key value} pair and {@link Expiration}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @param expireTimeout must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> pSetEX(ByteBuffer key, ByteBuffer value, Expiration expireTimeout) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+			Assert.notNull(key, "ExpireTimeout must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return pSetEX(Mono.just(SetCommand.set(key).value(value).expiring(expireTimeout))).next()
+				.map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set {@code key value} pairs and {@link Expiration}.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param expireTimeout must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.SetCommand>> pSetEX(Publisher<ReactiveStringCommands.SetCommand> command);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class MSetCommand implements Command {
+
+		private Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs;
+
+		private MSetCommand(Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs) {
+			this.keyValuePairs = keyValuePairs;
+		}
+
+		@Override
+		public ByteBuffer getKey() {
+			return null;
+		}
+
+		public static ReactiveStringCommands.MSetCommand mset(Map<ByteBuffer, ByteBuffer> keyValuePairs) {
+			return mset(() -> keyValuePairs);
+		}
+
+		public static ReactiveStringCommands.MSetCommand mset(Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs) {
+			return new MSetCommand(keyValuePairs);
+		}
+
+		public Map<ByteBuffer, ByteBuffer> getKeyValuePairs() {
+			return keyValuePairs != null ? keyValuePairs.get() : null;
+		}
+	}
+
+	/**
+	 * Set multiple keys to multiple values using key-value pairs provided in {@code tuple}.
+	 *
+	 * @param tuples must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> mSet(Map<ByteBuffer, ByteBuffer> tuples) {
+
+		try {
+			Assert.notNull(tuples, "Tuples must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return mSet(Mono.just(MSetCommand.mset(tuples))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set multiple keys to multiple values using key-value pairs provided in {@code source}.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.MSetCommand>> mSet(Publisher<ReactiveStringCommands.MSetCommand> source);
+
+	/**
+	 * Set multiple keys to multiple values using key-value pairs provided in {@code tuples} only if the provided key does
+	 * not exist.
+	 *
+	 * @param tuples must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> mSetNX(Map<ByteBuffer, ByteBuffer> tuples) {
+
+		try {
+			Assert.notNull(tuples, "Tuples must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return mSetNX(Mono.just(MSetCommand.mset(tuples))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set multiple keys to multiple values using key-value pairs provided in {@code tuples} only if the provided key does
+	 * not exist.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.MSetCommand>> mSetNX(
+			Publisher<ReactiveStringCommands.MSetCommand> source);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class AppendCommand extends KeyCommand {
+
+		private Supplier<ByteBuffer> value;
+
+		private AppendCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value) {
+
+			super(key);
+			this.value = value;
+		}
+
+		public static ReactiveStringCommands.AppendCommand key(ByteBuffer key) {
+			return key(() -> key);
+		}
+
+		public static ReactiveStringCommands.AppendCommand key(Supplier<ByteBuffer> key) {
+			return new AppendCommand(key, null);
+		}
+
+		public ReactiveStringCommands.AppendCommand append(ByteBuffer value) {
+			return append(() -> value);
+		}
+
+		public ReactiveStringCommands.AppendCommand append(Supplier<ByteBuffer> value) {
+			return new AppendCommand(getKeySupplier(), value);
+		}
+
+		public ByteBuffer getValue() {
+			return value != null ? value.get() : null;
+		}
+
+	}
+
+	/**
+	 * Append a {@code value} to {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> append(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return append(Mono.just(AppendCommand.key(key).append(value))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Append a {@link KeyValue#value} to {@link KeyValue#key}
+	 *
+	 * @param source must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ReactiveStringCommands.AppendCommand, Long>> append(
+			Publisher<ReactiveStringCommands.AppendCommand> source);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class GetRangeCommand extends KeyCommand {
+
+		Supplier<Range<Long>> range;
+
+		public GetRangeCommand(Supplier<ByteBuffer> key, Supplier<Range<Long>> range) {
+
+			super(key);
+			this.range = range != null ? range : () -> new Range<Long>(0L, Long.MAX_VALUE);
+		}
+
+		public static ReactiveStringCommands.GetRangeCommand get(ByteBuffer key) {
+			return get(() -> key);
+		}
+
+		public static ReactiveStringCommands.GetRangeCommand get(Supplier<ByteBuffer> key) {
+			return new GetRangeCommand(key, null);
+		}
+
+		public ReactiveStringCommands.GetRangeCommand within(Range<Long> range) {
+			return within(() -> range);
+		}
+
+		public ReactiveStringCommands.GetRangeCommand within(Supplier<Range<Long>> range) {
+			return new GetRangeCommand(getKeySupplier(), range);
+		}
+
+		public ReactiveStringCommands.GetRangeCommand fromIndex(Long start) {
+			return new GetRangeCommand(getKeySupplier(), () -> new Range<Long>(start, range.get().getUpperBound()));
+		}
+
+		public ReactiveStringCommands.GetRangeCommand toIndex(Long end) {
+			return new GetRangeCommand(getKeySupplier(), () -> new Range<Long>(range.get().getLowerBound(), end));
+		}
+
+		public Range<Long> getRange() {
+			return range != null ? range.get() : null;
+		}
+	}
+
+	/**
+	 * Get a substring of value of {@code key} between {@code begin} and {@code end}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param begin
+	 * @param end
+	 * @return
+	 */
+	default Mono<ByteBuffer> getRange(ByteBuffer key, long begin, long end) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return getRange(Mono.just(GetRangeCommand.get(key).fromIndex(begin).toIndex(end))).next()
+				.map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Get a substring of value of {@code key} between {@code begin} and {@code end}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param begin
+	 * @param end
+	 * @return
+	 */
+	Flux<ByteBufferResponse<ReactiveStringCommands.GetRangeCommand>> getRange(
+			Publisher<ReactiveStringCommands.GetRangeCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class SetRangeCommand extends KeyCommand {
+
+		private Supplier<ByteBuffer> value;
+		private Supplier<Long> offset;
+
+		private SetRangeCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value, Supplier<Long> offset) {
+
+			super(key);
+			this.value = value;
+			this.offset = offset;
+		}
+
+		public static ReactiveStringCommands.SetRangeCommand overwrite(ByteBuffer key) {
+			return overwrite(() -> key);
+		}
+
+		public static ReactiveStringCommands.SetRangeCommand overwrite(Supplier<ByteBuffer> key) {
+			return new SetRangeCommand(key, null, null);
+		}
+
+		public ReactiveStringCommands.SetRangeCommand withValue(ByteBuffer value) {
+			return withValue(() -> value);
+		}
+
+		public ReactiveStringCommands.SetRangeCommand withValue(Supplier<ByteBuffer> value) {
+			return new SetRangeCommand(getKeySupplier(), value, offset);
+		}
+
+		public ReactiveStringCommands.SetRangeCommand atPosition(Long index) {
+			return atPosition(() -> index);
+		}
+
+		public ReactiveStringCommands.SetRangeCommand atPosition(Supplier<Long> index) {
+			return new SetRangeCommand(getKeySupplier(), value, index);
+		}
+
+		public ByteBuffer getValue() {
+			return value != null ? value.get() : null;
+		}
+
+		public Long getOffset() {
+			return offset != null ? offset.get() : null;
+		}
+	}
+
+	/**
+	 * Overwrite parts of {@code key} starting at the specified {@code offset} with given {@code value}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @param offset
+	 * @return
+	 */
+	default Mono<Long> setRange(ByteBuffer key, ByteBuffer value, long offset) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return setRange(Mono.just(SetRangeCommand.overwrite(key).withValue(value).atPosition(offset))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Overwrite parts of {@link KeyValue#key} starting at the specified {@code offset} with given {@link KeyValue#value}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param offset must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ReactiveStringCommands.SetRangeCommand, Long>> setRange(
+			Publisher<ReactiveStringCommands.SetRangeCommand> commands);
+
+	public static class GetBitCommand extends KeyCommand {
+
+		public Supplier<Long> offset;
+
+		public GetBitCommand(Supplier<ByteBuffer> key, Supplier<Long> offset) {
+
+			super(key);
+			this.offset = offset;
+		}
+
+		public static ReactiveStringCommands.GetBitCommand bit(ByteBuffer key) {
+			return bit(() -> key);
+		}
+
+		public static ReactiveStringCommands.GetBitCommand bit(Supplier<ByteBuffer> key) {
+			return new GetBitCommand(key, null);
+		}
+
+		public ReactiveStringCommands.GetBitCommand atOffset(Long offset) {
+			return atOffset(() -> offset);
+		}
+
+		public ReactiveStringCommands.GetBitCommand atOffset(Supplier<Long> offset) {
+			return new GetBitCommand(getKeySupplier(), offset);
+		}
+
+		public Long getOffset() {
+			return offset != null ? offset.get() : null;
+		}
+	}
+
+	/**
+	 * Get the bit value at {@code offset} of value at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param offset
+	 * @return
+	 */
+	default Mono<Boolean> getBit(ByteBuffer key, long offset) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return getBit(Mono.just(GetBitCommand.bit(key).atOffset(offset))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Get the bit value at {@code offset} of value at {@code key}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param offset must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.GetBitCommand>> getBit(
+			Publisher<ReactiveStringCommands.GetBitCommand> commands);
+
+	public static class SetBitCommand extends KeyCommand {
+
+		private Supplier<Long> offset;
+		private Supplier<Boolean> value;
+
+		private SetBitCommand(Supplier<ByteBuffer> key, Supplier<Long> offset, Supplier<Boolean> value) {
+
+			super(key);
+			this.offset = offset;
+			this.value = value;
+		}
+
+		public static ReactiveStringCommands.SetBitCommand bit(ByteBuffer key) {
+			return bit(() -> key);
+		}
+
+		public static ReactiveStringCommands.SetBitCommand bit(Supplier<ByteBuffer> key) {
+			return new SetBitCommand(key, null, null);
+		}
+
+		public ReactiveStringCommands.SetBitCommand atOffset(Long index) {
+			return atOffset(() -> index);
+		}
+
+		public ReactiveStringCommands.SetBitCommand atOffset(Supplier<Long> index) {
+			return new ReactiveStringCommands.SetBitCommand(getKeySupplier(), index, value);
+		}
+
+		public ReactiveStringCommands.SetBitCommand to(Boolean bit) {
+			return to(() -> bit);
+		}
+
+		public ReactiveStringCommands.SetBitCommand to(Supplier<Boolean> bit) {
+			return new ReactiveStringCommands.SetBitCommand(getKeySupplier(), offset, bit);
+		}
+
+		public Long getOffset() {
+			return offset != null ? offset.get() : null;
+		}
+
+		public Boolean getValue() {
+			return value != null ? value.get() : null;
+		}
+	}
+
+	/**
+	 * Sets the bit at {@code offset} in value stored at {@code key} and return the original value.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param offset
+	 * @param value
+	 * @return
+	 */
+	default Mono<Boolean> setBit(ByteBuffer key, long offset, boolean value) {
+
+		try {
+			Assert.notNull(key, "Key must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return setBit(Mono.just(SetBitCommand.bit(key).atOffset(offset).to(value))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Sets the bit at {@code offset} in value stored at {@code key} and return the original value.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param offset must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<ReactiveStringCommands.SetBitCommand>> setBit(
+			Publisher<ReactiveStringCommands.SetBitCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static class BitCountCommand extends KeyCommand {
+
+		private Supplier<Range<Long>> range;
+
+		public BitCountCommand(Supplier<ByteBuffer> key, Supplier<Range<Long>> range) {
+
+			super(key);
+			this.range = range;
+		}
+
+		public static ReactiveStringCommands.BitCountCommand bitCount(ByteBuffer key) {
+			return bitCount(() -> key);
+		}
+
+		public static ReactiveStringCommands.BitCountCommand bitCount(Supplier<ByteBuffer> key) {
+			return new ReactiveStringCommands.BitCountCommand(key, null);
+		}
+
+		public ReactiveStringCommands.BitCountCommand within(Range<Long> range) {
+			return within(() -> range);
+		}
+
+		public ReactiveStringCommands.BitCountCommand within(Supplier<Range<Long>> range) {
+			return new ReactiveStringCommands.BitCountCommand(getKeySupplier(), range);
+		}
+
+		public Range<Long> getRange() {
+			return range != null ? range.get() : null;
+		}
+
+	}
+
+	/**
+	 * Count the number of set bits (population counting) in value stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> bitCount(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "Key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bitCount(Mono.just(BitCountCommand.bitCount(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Count the number of set bits (population counting) of value stored at {@code key} between {@code begin} and
+	 * {@code end}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param begin
+	 * @param end
+	 * @return
+	 */
+	default Mono<Long> bitCount(ByteBuffer key, long begin, long end) {
+
+		try {
+			Assert.notNull(key, "Key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bitCount(Mono.just(BitCountCommand.bitCount(key).within(new Range<>(begin, end)))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Count the number of set bits (population counting) of value stored at {@code key} between {@code begin} and
+	 * {@code end}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param begin must not be {@literal null}.
+	 * @param end must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ReactiveStringCommands.BitCountCommand, Long>> bitCount(
+			Publisher<ReactiveStringCommands.BitCountCommand> commands);
+
+	public static class BitOpCommand {
+
+		private Supplier<List<ByteBuffer>> keys;
+		private Supplier<BitOperation> bitOp;
+		private Supplier<ByteBuffer> destinationKey;
+
+		public BitOpCommand(Supplier<List<ByteBuffer>> keys, Supplier<BitOperation> bitOp,
+				Supplier<ByteBuffer> destinationKey) {
+
+			this.keys = keys;
+			this.bitOp = bitOp;
+			this.destinationKey = destinationKey;
+		}
+
+		public static ReactiveStringCommands.BitOpCommand perform(BitOperation bitOp) {
+			return perform(() -> bitOp);
+		}
+
+		public static ReactiveStringCommands.BitOpCommand perform(Supplier<BitOperation> bitOp) {
+			return new ReactiveStringCommands.BitOpCommand(null, bitOp, null);
+		}
+
+		public BitOperation getBitOp() {
+			return bitOp != null ? bitOp.get() : null;
+		}
+
+		public ReactiveStringCommands.BitOpCommand onKeys(List<ByteBuffer> keys) {
+			return onKeys(() -> keys);
+		}
+
+		public ReactiveStringCommands.BitOpCommand onKeys(Supplier<List<ByteBuffer>> keys) {
+			return new ReactiveStringCommands.BitOpCommand(keys, bitOp, destinationKey);
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys != null ? keys.get() : null;
+		}
+
+		public ReactiveStringCommands.BitOpCommand andSaveAs(ByteBuffer destinationKey) {
+			return andSaveAs(() -> destinationKey);
+		}
+
+		public ReactiveStringCommands.BitOpCommand andSaveAs(Supplier<ByteBuffer> destinationKey) {
+			return new ReactiveStringCommands.BitOpCommand(keys, bitOp, destinationKey);
+		}
+
+		public ByteBuffer getDestinationKey() {
+			return destinationKey != null ? destinationKey.get() : null;
+		}
+
+	}
+
+	/**
+	 * Perform bitwise operations between strings.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param bitOp must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> bitOp(List<ByteBuffer> keys, BitOperation bitOp, ByteBuffer destination) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bitOp(Mono.just(BitOpCommand.perform(bitOp).onKeys(keys).andSaveAs(destination))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Perform bitwise operations between strings.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param bitOp must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ReactiveStringCommands.BitOpCommand, Long>> bitOp(
+			Publisher<ReactiveStringCommands.BitOpCommand> commands);
+
+	/**
+	 * Get the length of the value stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> strLen(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return strLen(Mono.just(new KeyCommand(() -> key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get the length of the value stored at {@code key}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<KeyCommand, Long>> strLen(Publisher<KeyCommand> keys);
+}
