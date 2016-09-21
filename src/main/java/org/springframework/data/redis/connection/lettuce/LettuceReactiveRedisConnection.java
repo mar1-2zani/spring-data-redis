@@ -22,7 +22,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.data.redis.connection.ReactiveRedisConnection;
-import org.springframework.data.repository.util.QueryExecutionConverters.ObservableToMonoConverter;
+import org.springframework.data.repository.util.QueryExecutionConverters.RxJava1ObservableToMonoConverter;
 import org.springframework.util.Assert;
 
 import com.lambdaworks.redis.AbstractRedisClient;
@@ -125,7 +125,8 @@ public class LettuceReactiveRedisConnection implements ReactiveRedisConnection {
 	 * @return
 	 */
 	static <T> Converter<Observable<?>, Mono<T>> monoConverter() {
-		return (Converter<Observable<?>, Mono<T>>) (Converter) ObservableToMonoConverter.INSTANCE;
+		// TODO: replace this one with conversion service
+		return (Converter<Observable<?>, Mono<T>>) (Converter) RxJava1ObservableToMonoConverter.INSTANCE;
 	}
 
 	interface LettuceReactiveCallback<T> {
