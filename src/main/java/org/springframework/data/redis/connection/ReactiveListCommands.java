@@ -444,4 +444,99 @@ public interface ReactiveListCommands {
 	 */
 	Flux<BooleanResponse<LSetCommand>> lSet(Publisher<LSetCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class LRemCommand extends KeyCommand {
+
+		private final Long count;
+		private final ByteBuffer value;
+
+		private LRemCommand(ByteBuffer key, Long count, ByteBuffer value) {
+			super(key);
+			this.count = count;
+			this.value = value;
+		}
+
+		public static LRemCommand all() {
+			return new LRemCommand(null, 0L, null);
+		}
+
+		public static LRemCommand first(Long count) {
+			return new LRemCommand(null, count, null);
+		}
+
+		public static LRemCommand last(Long count) {
+
+			Long value = count < 0L ? count : Math.negateExact(count);
+			return new LRemCommand(null, value, null);
+		}
+
+		public LRemCommand occurancesOf(ByteBuffer value) {
+			return new LRemCommand(getKey(), count, value);
+		}
+
+		public LRemCommand from(ByteBuffer key) {
+			return new LRemCommand(key, count, value);
+		}
+
+		public Long getCount() {
+			return count;
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+	}
+
+	/**
+	 * Removes all occurrences of {@code value} from the list stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lRem(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lRem(Mono.just(LRemCommand.all().occurancesOf(value).from(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Removes the first {@code count} occurrences of {@code value} from the list stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param count must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lRem(ByteBuffer key, Long count, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(count, "count must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lRem(Mono.just(LRemCommand.first(count).occurancesOf(value).from(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Removes the {@link LRemCommand#getCount()} occurrences of {@link LRemCommand#getValue()} from the list stored at
+	 * {@link LRemCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<LRemCommand, Long>> lRem(Publisher<LRemCommand> commands);
+
 }

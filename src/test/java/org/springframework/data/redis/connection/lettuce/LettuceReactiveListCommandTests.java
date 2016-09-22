@@ -195,4 +195,41 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_3));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), not(contains(VALUE_2)));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lRemSouldRemoveAllValuesCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_1, VALUE_3);
+
+		assertThat(connection.listCommands().lRem(KEY_1_BBUFFER, VALUE_1_BBUFFER).block(), is(2L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_2, VALUE_3));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), not(contains(VALUE_1)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lRemSouldRemoveFirstValuesCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_1, VALUE_3);
+
+		assertThat(connection.listCommands().lRem(KEY_1_BBUFFER, 1L, VALUE_1_BBUFFER).block(), is(1L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_2, VALUE_1, VALUE_3));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lRemSouldRemoveLastValuesCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_1, VALUE_3);
+
+		assertThat(connection.listCommands().lRem(KEY_1_BBUFFER, -1L, VALUE_1_BBUFFER).block(), is(1L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2, VALUE_3));
+	}
 }

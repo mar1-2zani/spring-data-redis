@@ -203,4 +203,20 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lRem(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<LRemCommand, Long>> lRem(Publisher<LRemCommand> commands) {
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.lrem(command.getKey().array(), command.getCount(), command.getValue().array()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
 }
