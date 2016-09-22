@@ -136,8 +136,8 @@ public class LettuceReactiveStringCommandsTests extends LettuceReactiveCommandsT
 		nativeCommands.set(KEY_1, VALUE_1);
 		nativeCommands.set(KEY_2, VALUE_2);
 
-		Flux<ByteBufferResponse<KeyCommand>> result = connection.stringCommands().get(Flux
-				.fromStream(Arrays.asList(new KeyCommand(() -> KEY_1_BBUFFER), new KeyCommand(() -> KEY_2_BBUFFER)).stream()));
+		Flux<ByteBufferResponse<KeyCommand>> result = connection.stringCommands()
+				.get(Flux.fromStream(Arrays.asList(new KeyCommand(KEY_1_BBUFFER), new KeyCommand(KEY_2_BBUFFER)).stream()));
 
 		TestSubscriber<ByteBufferResponse<KeyCommand>> subscriber = TestSubscriber.create();
 		result.subscribe(subscriber);
@@ -155,9 +155,8 @@ public class LettuceReactiveStringCommandsTests extends LettuceReactiveCommandsT
 		nativeCommands.set(KEY_1, VALUE_1);
 		nativeCommands.set(KEY_3, VALUE_3);
 
-		Flux<ByteBufferResponse<KeyCommand>> result = connection.stringCommands()
-				.get(Flux.fromStream(Arrays.asList(new KeyCommand(() -> KEY_1_BBUFFER), new KeyCommand(() -> KEY_2_BBUFFER),
-						new KeyCommand(() -> KEY_3_BBUFFER)).stream()));
+		Flux<ByteBufferResponse<KeyCommand>> result = connection.stringCommands().get(Flux.fromStream(Arrays
+				.asList(new KeyCommand(KEY_1_BBUFFER), new KeyCommand(KEY_2_BBUFFER), new KeyCommand(KEY_3_BBUFFER)).stream()));
 
 		TestSubscriber<ByteBufferResponse<KeyCommand>> subscriber = TestSubscriber.create();
 		result.subscribe(subscriber);

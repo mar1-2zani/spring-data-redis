@@ -168,8 +168,8 @@ public class LettuceReactiveKeyCommandsTests extends LettuceReactiveCommandsTest
 		nativeCommands.set(KEY_1, VALUE_1);
 		nativeCommands.set(KEY_2, VALUE_2);
 
-		Flux<NumericResponse<KeyCommand, Long>> result = connection.keyCommands().del(
-				Flux.fromIterable(Arrays.asList(new KeyCommand(() -> KEY_1_BBUFFER), new KeyCommand(() -> KEY_2_BBUFFER))));
+		Flux<NumericResponse<KeyCommand, Long>> result = connection.keyCommands()
+				.del(Flux.fromIterable(Arrays.asList(new KeyCommand(KEY_1_BBUFFER), new KeyCommand(KEY_2_BBUFFER))));
 
 		TestSubscriber<NumericResponse<KeyCommand, Long>> subscriber = TestSubscriber.create();
 		result.subscribe(subscriber);

@@ -18,7 +18,6 @@ package org.springframework.data.redis.connection;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.domain.Range;
@@ -47,12 +46,11 @@ public interface ReactiveStringCommands {
 	 */
 	public static class SetCommand extends KeyCommand {
 
-		private Supplier<ByteBuffer> value;
-		private Supplier<Expiration> expiration;
-		private Supplier<SetOption> option;
+		private ByteBuffer value;
+		private Expiration expiration;
+		private SetOption option;
 
-		public SetCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value, Supplier<Expiration> expiration,
-				Supplier<SetOption> option) {
+		public SetCommand(ByteBuffer key, ByteBuffer value, Expiration expiration, SetOption option) {
 
 			super(key);
 			this.value = value;
@@ -61,47 +59,31 @@ public interface ReactiveStringCommands {
 		}
 
 		public static ReactiveStringCommands.SetCommand set(ByteBuffer key) {
-			return set(() -> key);
-		}
-
-		public static ReactiveStringCommands.SetCommand set(Supplier<ByteBuffer> key) {
 			return new SetCommand(key, null, null, null);
 		}
 
 		public ReactiveStringCommands.SetCommand value(ByteBuffer value) {
-			return value(() -> value);
-		}
-
-		public ReactiveStringCommands.SetCommand value(Supplier<ByteBuffer> value) {
-			return new SetCommand(getKeySupplier(), value, expiration, option);
+			return new SetCommand(getKey(), value, expiration, option);
 		}
 
 		public ReactiveStringCommands.SetCommand expiring(Expiration expiration) {
-			return expiring(() -> expiration);
-		}
-
-		public ReactiveStringCommands.SetCommand expiring(Supplier<Expiration> expiration) {
-			return new SetCommand(getKeySupplier(), value, expiration, option);
+			return new SetCommand(getKey(), value, expiration, option);
 		}
 
 		public ReactiveStringCommands.SetCommand withSetOption(SetOption option) {
-			return withSetOption(option);
-		}
-
-		public ReactiveStringCommands.SetCommand withSetOption(Supplier<SetOption> option) {
-			return new SetCommand(getKeySupplier(), value, expiration, option);
+			return new SetCommand(getKey(), value, expiration, option);
 		}
 
 		public ByteBuffer getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 
 		public Expiration getExpiration() {
-			return hasExpiration() ? expiration.get() : null;
+			return expiration;
 		}
 
 		public SetOption getOption() {
-			return hasOption() ? option.get() : null;
+			return option;
 		}
 
 		public boolean hasExpiration() {
@@ -176,7 +158,7 @@ public interface ReactiveStringCommands {
 			return Mono.error(e);
 		}
 
-		return get(Mono.just(new KeyCommand(() -> key))).next().map((result) -> result.getOutput());
+		return get(Mono.just(new KeyCommand(key))).next().map((result) -> result.getOutput());
 	}
 
 	/**
@@ -336,9 +318,9 @@ public interface ReactiveStringCommands {
 	 */
 	public static class MSetCommand implements Command {
 
-		private Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs;
+		private Map<ByteBuffer, ByteBuffer> keyValuePairs;
 
-		private MSetCommand(Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs) {
+		private MSetCommand(Map<ByteBuffer, ByteBuffer> keyValuePairs) {
 			this.keyValuePairs = keyValuePairs;
 		}
 
@@ -348,15 +330,11 @@ public interface ReactiveStringCommands {
 		}
 
 		public static ReactiveStringCommands.MSetCommand mset(Map<ByteBuffer, ByteBuffer> keyValuePairs) {
-			return mset(() -> keyValuePairs);
-		}
-
-		public static ReactiveStringCommands.MSetCommand mset(Supplier<Map<ByteBuffer, ByteBuffer>> keyValuePairs) {
 			return new MSetCommand(keyValuePairs);
 		}
 
 		public Map<ByteBuffer, ByteBuffer> getKeyValuePairs() {
-			return keyValuePairs != null ? keyValuePairs.get() : null;
+			return keyValuePairs;
 		}
 	}
 
@@ -418,32 +396,24 @@ public interface ReactiveStringCommands {
 	 */
 	public static class AppendCommand extends KeyCommand {
 
-		private Supplier<ByteBuffer> value;
+		private ByteBuffer value;
 
-		private AppendCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value) {
+		private AppendCommand(ByteBuffer key, ByteBuffer value) {
 
 			super(key);
 			this.value = value;
 		}
 
 		public static ReactiveStringCommands.AppendCommand key(ByteBuffer key) {
-			return key(() -> key);
-		}
-
-		public static ReactiveStringCommands.AppendCommand key(Supplier<ByteBuffer> key) {
 			return new AppendCommand(key, null);
 		}
 
 		public ReactiveStringCommands.AppendCommand append(ByteBuffer value) {
-			return append(() -> value);
-		}
-
-		public ReactiveStringCommands.AppendCommand append(Supplier<ByteBuffer> value) {
-			return new AppendCommand(getKeySupplier(), value);
+			return new AppendCommand(getKey(), value);
 		}
 
 		public ByteBuffer getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 
 	}
@@ -481,40 +451,32 @@ public interface ReactiveStringCommands {
 	 */
 	public static class GetRangeCommand extends KeyCommand {
 
-		Supplier<Range<Long>> range;
+		Range<Long> range;
 
-		public GetRangeCommand(Supplier<ByteBuffer> key, Supplier<Range<Long>> range) {
+		public GetRangeCommand(ByteBuffer key, Range<Long> range) {
 
 			super(key);
-			this.range = range != null ? range : () -> new Range<Long>(0L, Long.MAX_VALUE);
+			this.range = range != null ? range : new Range<Long>(0L, Long.MAX_VALUE);
 		}
 
 		public static ReactiveStringCommands.GetRangeCommand get(ByteBuffer key) {
-			return get(() -> key);
-		}
-
-		public static ReactiveStringCommands.GetRangeCommand get(Supplier<ByteBuffer> key) {
 			return new GetRangeCommand(key, null);
 		}
 
 		public ReactiveStringCommands.GetRangeCommand within(Range<Long> range) {
-			return within(() -> range);
-		}
-
-		public ReactiveStringCommands.GetRangeCommand within(Supplier<Range<Long>> range) {
-			return new GetRangeCommand(getKeySupplier(), range);
+			return new GetRangeCommand(getKey(), range);
 		}
 
 		public ReactiveStringCommands.GetRangeCommand fromIndex(Long start) {
-			return new GetRangeCommand(getKeySupplier(), () -> new Range<Long>(start, range.get().getUpperBound()));
+			return new GetRangeCommand(getKey(), new Range<Long>(start, range.getUpperBound()));
 		}
 
 		public ReactiveStringCommands.GetRangeCommand toIndex(Long end) {
-			return new GetRangeCommand(getKeySupplier(), () -> new Range<Long>(range.get().getLowerBound(), end));
+			return new GetRangeCommand(getKey(), new Range<Long>(range.getLowerBound(), end));
 		}
 
 		public Range<Long> getRange() {
-			return range != null ? range.get() : null;
+			return range;
 		}
 	}
 
@@ -554,10 +516,10 @@ public interface ReactiveStringCommands {
 	 */
 	public static class SetRangeCommand extends KeyCommand {
 
-		private Supplier<ByteBuffer> value;
-		private Supplier<Long> offset;
+		private ByteBuffer value;
+		private Long offset;
 
-		private SetRangeCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> value, Supplier<Long> offset) {
+		private SetRangeCommand(ByteBuffer key, ByteBuffer value, Long offset) {
 
 			super(key);
 			this.value = value;
@@ -565,35 +527,23 @@ public interface ReactiveStringCommands {
 		}
 
 		public static ReactiveStringCommands.SetRangeCommand overwrite(ByteBuffer key) {
-			return overwrite(() -> key);
-		}
-
-		public static ReactiveStringCommands.SetRangeCommand overwrite(Supplier<ByteBuffer> key) {
 			return new SetRangeCommand(key, null, null);
 		}
 
 		public ReactiveStringCommands.SetRangeCommand withValue(ByteBuffer value) {
-			return withValue(() -> value);
-		}
-
-		public ReactiveStringCommands.SetRangeCommand withValue(Supplier<ByteBuffer> value) {
-			return new SetRangeCommand(getKeySupplier(), value, offset);
+			return new SetRangeCommand(getKey(), value, offset);
 		}
 
 		public ReactiveStringCommands.SetRangeCommand atPosition(Long index) {
-			return atPosition(() -> index);
-		}
-
-		public ReactiveStringCommands.SetRangeCommand atPosition(Supplier<Long> index) {
-			return new SetRangeCommand(getKeySupplier(), value, index);
+			return new SetRangeCommand(getKey(), value, index);
 		}
 
 		public ByteBuffer getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 
 		public Long getOffset() {
-			return offset != null ? offset.get() : null;
+			return offset;
 		}
 	}
 
@@ -630,32 +580,24 @@ public interface ReactiveStringCommands {
 
 	public static class GetBitCommand extends KeyCommand {
 
-		public Supplier<Long> offset;
+		public Long offset;
 
-		public GetBitCommand(Supplier<ByteBuffer> key, Supplier<Long> offset) {
+		public GetBitCommand(ByteBuffer key, Long offset) {
 
 			super(key);
 			this.offset = offset;
 		}
 
 		public static ReactiveStringCommands.GetBitCommand bit(ByteBuffer key) {
-			return bit(() -> key);
-		}
-
-		public static ReactiveStringCommands.GetBitCommand bit(Supplier<ByteBuffer> key) {
 			return new GetBitCommand(key, null);
 		}
 
 		public ReactiveStringCommands.GetBitCommand atOffset(Long offset) {
-			return atOffset(() -> offset);
-		}
-
-		public ReactiveStringCommands.GetBitCommand atOffset(Supplier<Long> offset) {
-			return new GetBitCommand(getKeySupplier(), offset);
+			return new GetBitCommand(getKey(), offset);
 		}
 
 		public Long getOffset() {
-			return offset != null ? offset.get() : null;
+			return offset;
 		}
 	}
 
@@ -689,10 +631,10 @@ public interface ReactiveStringCommands {
 
 	public static class SetBitCommand extends KeyCommand {
 
-		private Supplier<Long> offset;
-		private Supplier<Boolean> value;
+		private Long offset;
+		private Boolean value;
 
-		private SetBitCommand(Supplier<ByteBuffer> key, Supplier<Long> offset, Supplier<Boolean> value) {
+		private SetBitCommand(ByteBuffer key, Long offset, Boolean value) {
 
 			super(key);
 			this.offset = offset;
@@ -700,35 +642,23 @@ public interface ReactiveStringCommands {
 		}
 
 		public static ReactiveStringCommands.SetBitCommand bit(ByteBuffer key) {
-			return bit(() -> key);
-		}
-
-		public static ReactiveStringCommands.SetBitCommand bit(Supplier<ByteBuffer> key) {
 			return new SetBitCommand(key, null, null);
 		}
 
 		public ReactiveStringCommands.SetBitCommand atOffset(Long index) {
-			return atOffset(() -> index);
-		}
-
-		public ReactiveStringCommands.SetBitCommand atOffset(Supplier<Long> index) {
-			return new ReactiveStringCommands.SetBitCommand(getKeySupplier(), index, value);
+			return new ReactiveStringCommands.SetBitCommand(getKey(), index, value);
 		}
 
 		public ReactiveStringCommands.SetBitCommand to(Boolean bit) {
-			return to(() -> bit);
-		}
-
-		public ReactiveStringCommands.SetBitCommand to(Supplier<Boolean> bit) {
-			return new ReactiveStringCommands.SetBitCommand(getKeySupplier(), offset, bit);
+			return new ReactiveStringCommands.SetBitCommand(getKey(), offset, bit);
 		}
 
 		public Long getOffset() {
-			return offset != null ? offset.get() : null;
+			return offset;
 		}
 
 		public Boolean getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 	}
 
@@ -767,32 +697,24 @@ public interface ReactiveStringCommands {
 	 */
 	public static class BitCountCommand extends KeyCommand {
 
-		private Supplier<Range<Long>> range;
+		private Range<Long> range;
 
-		public BitCountCommand(Supplier<ByteBuffer> key, Supplier<Range<Long>> range) {
+		public BitCountCommand(ByteBuffer key, Range<Long> range) {
 
 			super(key);
 			this.range = range;
 		}
 
 		public static ReactiveStringCommands.BitCountCommand bitCount(ByteBuffer key) {
-			return bitCount(() -> key);
-		}
-
-		public static ReactiveStringCommands.BitCountCommand bitCount(Supplier<ByteBuffer> key) {
 			return new ReactiveStringCommands.BitCountCommand(key, null);
 		}
 
 		public ReactiveStringCommands.BitCountCommand within(Range<Long> range) {
-			return within(() -> range);
-		}
-
-		public ReactiveStringCommands.BitCountCommand within(Supplier<Range<Long>> range) {
-			return new ReactiveStringCommands.BitCountCommand(getKeySupplier(), range);
+			return new ReactiveStringCommands.BitCountCommand(getKey(), range);
 		}
 
 		public Range<Long> getRange() {
-			return range != null ? range.get() : null;
+			return range;
 		}
 
 	}
@@ -849,12 +771,11 @@ public interface ReactiveStringCommands {
 
 	public static class BitOpCommand {
 
-		private Supplier<List<ByteBuffer>> keys;
-		private Supplier<BitOperation> bitOp;
-		private Supplier<ByteBuffer> destinationKey;
+		private List<ByteBuffer> keys;
+		private BitOperation bitOp;
+		private ByteBuffer destinationKey;
 
-		public BitOpCommand(Supplier<List<ByteBuffer>> keys, Supplier<BitOperation> bitOp,
-				Supplier<ByteBuffer> destinationKey) {
+		public BitOpCommand(List<ByteBuffer> keys, BitOperation bitOp, ByteBuffer destinationKey) {
 
 			this.keys = keys;
 			this.bitOp = bitOp;
@@ -862,39 +783,27 @@ public interface ReactiveStringCommands {
 		}
 
 		public static ReactiveStringCommands.BitOpCommand perform(BitOperation bitOp) {
-			return perform(() -> bitOp);
-		}
-
-		public static ReactiveStringCommands.BitOpCommand perform(Supplier<BitOperation> bitOp) {
 			return new ReactiveStringCommands.BitOpCommand(null, bitOp, null);
 		}
 
 		public BitOperation getBitOp() {
-			return bitOp != null ? bitOp.get() : null;
+			return bitOp;
 		}
 
 		public ReactiveStringCommands.BitOpCommand onKeys(List<ByteBuffer> keys) {
-			return onKeys(() -> keys);
-		}
-
-		public ReactiveStringCommands.BitOpCommand onKeys(Supplier<List<ByteBuffer>> keys) {
 			return new ReactiveStringCommands.BitOpCommand(keys, bitOp, destinationKey);
 		}
 
 		public List<ByteBuffer> getKeys() {
-			return keys != null ? keys.get() : null;
+			return keys;
 		}
 
 		public ReactiveStringCommands.BitOpCommand andSaveAs(ByteBuffer destinationKey) {
-			return andSaveAs(() -> destinationKey);
-		}
-
-		public ReactiveStringCommands.BitOpCommand andSaveAs(Supplier<ByteBuffer> destinationKey) {
 			return new ReactiveStringCommands.BitOpCommand(keys, bitOp, destinationKey);
 		}
 
 		public ByteBuffer getDestinationKey() {
-			return destinationKey != null ? destinationKey.get() : null;
+			return destinationKey;
 		}
 
 	}
@@ -944,7 +853,7 @@ public interface ReactiveStringCommands {
 			return Mono.error(e);
 		}
 
-		return strLen(Mono.just(new KeyCommand(() -> key))).next().map(NumericResponse::getOutput);
+		return strLen(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**

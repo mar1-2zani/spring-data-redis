@@ -17,7 +17,6 @@ package org.springframework.data.redis.connection;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
@@ -50,7 +49,7 @@ public interface ReactiveKeyCommands {
 			return Mono.error(e);
 		}
 
-		return exists(Mono.just(new KeyCommand(() -> key))).next().map(BooleanResponse::getOutput);
+		return exists(Mono.just(new KeyCommand(key))).next().map(BooleanResponse::getOutput);
 	}
 
 	/**
@@ -123,32 +122,24 @@ public interface ReactiveKeyCommands {
 	 */
 	public static class RenameCommand extends KeyCommand {
 
-		private Supplier<ByteBuffer> newName;
+		private ByteBuffer newName;
 
-		private RenameCommand(Supplier<ByteBuffer> key, Supplier<ByteBuffer> newName) {
+		private RenameCommand(ByteBuffer key, ByteBuffer newName) {
 
 			super(key);
 			this.newName = newName;
 		}
 
 		public static ReactiveKeyCommands.RenameCommand key(ByteBuffer key) {
-			return key(() -> key);
-		}
-
-		public static ReactiveKeyCommands.RenameCommand key(Supplier<ByteBuffer> key) {
 			return new RenameCommand(key, null);
 		}
 
 		public ReactiveKeyCommands.RenameCommand to(ByteBuffer newName) {
-			return to(() -> newName);
-		}
-
-		public ReactiveKeyCommands.RenameCommand to(Supplier<ByteBuffer> newName) {
-			return new RenameCommand(getKeySupplier(), newName);
+			return new RenameCommand(getKey(), newName);
 		}
 
 		public ByteBuffer getNewName() {
-			return newName != null ? newName.get() : null;
+			return newName;
 		}
 	}
 
@@ -214,7 +205,7 @@ public interface ReactiveKeyCommands {
 			return Mono.error(e);
 		}
 
-		return del(Mono.just(new KeyCommand(() -> key))).next().map(NumericResponse::getOutput);
+		return del(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**

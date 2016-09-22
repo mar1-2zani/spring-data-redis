@@ -56,6 +56,13 @@ public interface ReactiveRedisConnection extends Closeable {
 	 */
 	ReactiveNumberCommands numberCommands();
 
+	/**
+	 * Get {@link ReactiveListCommands}.
+	 *
+	 * @return never {@literal null}.
+	 */
+	ReactiveListCommands listCommands();
+
 	static interface Command {
 
 		ByteBuffer getKey();
@@ -133,22 +140,18 @@ public interface ReactiveRedisConnection extends Closeable {
 	 */
 	public class KeyCommand implements Command {
 
-		private Supplier<ByteBuffer> key;
+		private ByteBuffer key;
 
-		public KeyCommand(Supplier<ByteBuffer> key) {
+		public KeyCommand(ByteBuffer key) {
 			this.key = key;
 		}
 
 		public static KeyCommand key(ByteBuffer key) {
-			return new KeyCommand(() -> key);
+			return new KeyCommand(key);
 		}
 
 		@Override
 		public ByteBuffer getKey() {
-			return key != null ? key.get() : null;
-		}
-
-		protected Supplier<ByteBuffer> getKeySupplier() {
 			return key;
 		}
 	}

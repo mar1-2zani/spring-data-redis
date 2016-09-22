@@ -16,7 +16,6 @@
 package org.springframework.data.redis.connection;
 
 import java.nio.ByteBuffer;
-import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
@@ -45,7 +44,7 @@ public interface ReactiveNumberCommands {
 		} catch (IllegalArgumentException e) {
 			return Mono.error(e);
 		}
-		return incr(Mono.just(new KeyCommand(() -> key))).next().map(NumericResponse::getOutput);
+		return incr(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**
@@ -61,31 +60,23 @@ public interface ReactiveNumberCommands {
 	 */
 	public class IncrByCommand<T extends Number> extends KeyCommand {
 
-		private Supplier<T> value;
+		private T value;
 
-		public IncrByCommand(Supplier<ByteBuffer> key, Supplier<T> value) {
+		public IncrByCommand(ByteBuffer key, T value) {
 			super(key);
 			this.value = value;
 		}
 
 		public static <T extends Number> ReactiveNumberCommands.IncrByCommand<T> incr(ByteBuffer key) {
-			return incr(() -> key);
-		}
-
-		public static <T extends Number> ReactiveNumberCommands.IncrByCommand<T> incr(Supplier<ByteBuffer> key) {
 			return new ReactiveNumberCommands.IncrByCommand<T>(key, null);
 		}
 
 		public ReactiveNumberCommands.IncrByCommand<T> by(T value) {
-			return by(() -> value);
-		}
-
-		public ReactiveNumberCommands.IncrByCommand<T> by(Supplier<T> value) {
-			return new ReactiveNumberCommands.IncrByCommand<T>(getKeySupplier(), value);
+			return new ReactiveNumberCommands.IncrByCommand<T>(getKey(), value);
 		}
 
 		public T getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 
 	}
@@ -124,31 +115,23 @@ public interface ReactiveNumberCommands {
 	 */
 	public class DecrByCommand<T extends Number> extends KeyCommand {
 
-		private Supplier<T> value;
+		private T value;
 
-		public DecrByCommand(Supplier<ByteBuffer> key, Supplier<T> value) {
+		public DecrByCommand(ByteBuffer key, T value) {
 			super(key);
 			this.value = value;
 		}
 
 		public static <T extends Number> ReactiveNumberCommands.DecrByCommand<T> decr(ByteBuffer key) {
-			return decr(() -> key);
-		}
-
-		public static <T extends Number> ReactiveNumberCommands.DecrByCommand<T> decr(Supplier<ByteBuffer> key) {
-			return new ReactiveNumberCommands.DecrByCommand<T>(key, null);
+			return new DecrByCommand<T>(key, null);
 		}
 
 		public ReactiveNumberCommands.DecrByCommand<T> by(T value) {
-			return by(() -> value);
-		}
-
-		public ReactiveNumberCommands.DecrByCommand<T> by(Supplier<T> value) {
-			return new ReactiveNumberCommands.DecrByCommand<T>(getKeySupplier(), value);
+			return new DecrByCommand<T>(getKey(), value);
 		}
 
 		public T getValue() {
-			return value != null ? value.get() : null;
+			return value;
 		}
 
 	}
@@ -167,7 +150,7 @@ public interface ReactiveNumberCommands {
 			return Mono.error(e);
 		}
 
-		return decr(Mono.just(new KeyCommand(() -> key))).next().map(NumericResponse::getOutput);
+		return decr(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**
