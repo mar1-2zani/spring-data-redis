@@ -27,6 +27,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyComm
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
+import org.springframework.data.redis.connection.RedisListCommands.Position;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -163,6 +164,24 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
 						.convert(cmd.lindex(command.getKey().array(), command.getIndex()).map(ByteBuffer::wrap))
 						.map(value -> new ByteBufferResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lInsert(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<LInsertCommand, Long>> lInsert(Publisher<LInsertCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.linsert(command.getKey().array(), Position.BEFORE.equals(command.getPosition()),
+								command.getPivot().array(), command.getValue().array()))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
 	}

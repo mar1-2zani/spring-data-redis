@@ -26,6 +26,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyComm
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
+import org.springframework.data.redis.connection.RedisListCommands.Position;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -299,5 +300,84 @@ public interface ReactiveListCommands {
 	 * @return
 	 */
 	Flux<ByteBufferResponse<LIndexCommand>> lIndex(Publisher<LIndexCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class LInsertCommand extends KeyCommand {
+
+		private final Position position;
+		private final ByteBuffer pivot;
+		private final ByteBuffer value;
+
+		public LInsertCommand(ByteBuffer key, Position position, ByteBuffer pivot, ByteBuffer value) {
+
+			super(key);
+			this.position = position;
+			this.pivot = pivot;
+			this.value = value;
+		}
+
+		public static LInsertCommand value(ByteBuffer value) {
+			return new LInsertCommand(null, null, null, value);
+		}
+
+		public LInsertCommand before(ByteBuffer pivot) {
+			return new LInsertCommand(getKey(), Position.BEFORE, pivot, value);
+		}
+
+		public LInsertCommand after(ByteBuffer pivot) {
+			return new LInsertCommand(getKey(), Position.AFTER, pivot, value);
+		}
+
+		public LInsertCommand forKey(ByteBuffer key) {
+			return new LInsertCommand(key, position, pivot, value);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+
+		public Position getPosition() {
+			return position;
+		}
+
+		public ByteBuffer getPivot() {
+			return pivot;
+		}
+	}
+
+	/**
+	 * Insert {@code value} {@link Position#BEFORE} or {@link Position#AFTER} existing {@code pivot} for {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lInsert(ByteBuffer key, Position position, ByteBuffer pivot, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null!");
+			Assert.notNull(position, "position must not be null!");
+			Assert.notNull(pivot, "pivot must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		LInsertCommand command = LInsertCommand.value(value);
+		command = Position.BEFORE.equals(position) ? command.before(pivot) : command.after(pivot);
+		command = command.forKey(key);
+		return lInsert(Mono.just(command)).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Insert {@link LInsertCommand#getValue()} {@link Position#BEFORE} or {@link Position#AFTER} existing
+	 * {@link LInsertCommand#getPivot()} for {@link LInsertCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<LInsertCommand, Long>> lInsert(Publisher<LInsertCommand> commands);
 
 }

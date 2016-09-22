@@ -26,6 +26,7 @@ import java.util.Arrays;
 import org.junit.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands.PushCommand;
+import org.springframework.data.redis.connection.RedisListCommands.Position;
 
 import reactor.core.publisher.Mono;
 
@@ -154,4 +155,31 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 		assertThat(connection.listCommands().lIndex(KEY_1_BBUFFER, 1).block(), is(equalTo(VALUE_2_BBUFFER)));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lInsertShouldAddValueCorrectlyBeforeExisting() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(
+				connection.listCommands().lInsert(KEY_1_BBUFFER, Position.BEFORE, VALUE_2_BBUFFER, VALUE_3_BBUFFER).block(),
+				is(3L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_3, VALUE_2));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lInsertShouldAddValueCorrectlyAfterExisting() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(
+				connection.listCommands().lInsert(KEY_1_BBUFFER, Position.AFTER, VALUE_2_BBUFFER, VALUE_3_BBUFFER).block(),
+				is(3L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2, VALUE_3));
+	}
 }
