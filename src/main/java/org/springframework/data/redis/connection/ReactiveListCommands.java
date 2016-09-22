@@ -21,7 +21,9 @@ import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -188,5 +190,33 @@ public interface ReactiveListCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<KeyCommand, Long>> lLen(Publisher<KeyCommand> commands);
+
+	/**
+	 * Get elements between {@code begin} and {@code end} from list at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param start
+	 * @param end
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> lRange(ByteBuffer key, long start, long end) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lRange(Mono.just(RangeCommand.key(key).fromIndex(start).toIndex(end))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get elements in {@link RangeCommand#getRange()} from list at {@link RangeCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<RangeCommand, ByteBuffer>> lRange(Publisher<RangeCommand> commands);
 
 }

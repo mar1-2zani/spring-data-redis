@@ -16,12 +16,15 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -105,6 +108,24 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 			return Flux.from(commands).flatMap(command -> {
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.llen(command.getKey().array()))
 						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lRange(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<RangeCommand, ByteBuffer>> lRange(Publisher<RangeCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
+						.convert(cmd.lrange(command.getKey().array(), command.getRange().getLowerBound(),
+								command.getRange().getUpperBound()).map(ByteBuffer::wrap).toList())
+						.map(value -> new MultiValueResponse<RangeCommand, ByteBuffer>(command, value));
 			});
 		});
 	}

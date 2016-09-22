@@ -28,6 +28,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBuf
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.data.redis.connection.ReactiveStringCommands;
 import org.springframework.util.Assert;
 
@@ -260,7 +261,7 @@ public class LettuceReactiveStringCommands implements ReactiveStringCommands {
 	 * @see org.springframework.data.redis.connection.ReactiveRedisConnection.ReactiveStringCommands#getRange(org.reactivestreams.Publisher, java.util.function.Supplier, java.util.function.Supplier)
 	 */
 	@Override
-	public Flux<ByteBufferResponse<GetRangeCommand>> getRange(Publisher<GetRangeCommand> commands) {
+	public Flux<ByteBufferResponse<RangeCommand>> getRange(Publisher<RangeCommand> commands) {
 
 		return connection.execute(cmd -> {
 

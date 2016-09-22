@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.DirectFieldAccessor;
+import org.springframework.data.domain.Range;
 import org.springframework.util.ObjectUtils;
 
 import lombok.Data;
@@ -146,13 +147,43 @@ public interface ReactiveRedisConnection extends Closeable {
 			this.key = key;
 		}
 
-		public static KeyCommand key(ByteBuffer key) {
-			return new KeyCommand(key);
-		}
-
 		@Override
 		public ByteBuffer getKey() {
 			return key;
+		}
+	}
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class RangeCommand extends KeyCommand {
+
+		Range<Long> range;
+
+		public RangeCommand(ByteBuffer key, Range<Long> range) {
+
+			super(key);
+			this.range = range != null ? range : new Range<Long>(0L, Long.MAX_VALUE);
+		}
+
+		public static RangeCommand key(ByteBuffer key) {
+			return new RangeCommand(key, null);
+		}
+
+		public RangeCommand within(Range<Long> range) {
+			return new RangeCommand(getKey(), range);
+		}
+
+		public RangeCommand fromIndex(Long start) {
+			return new RangeCommand(getKey(), new Range<Long>(start, range.getUpperBound()));
+		}
+
+		public RangeCommand toIndex(Long end) {
+			return new RangeCommand(getKey(), new Range<Long>(range.getLowerBound(), end));
+		}
+
+		public Range<Long> getRange() {
+			return range;
 		}
 	}
 

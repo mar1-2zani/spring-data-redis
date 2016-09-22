@@ -99,6 +99,7 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 	 */
 	@Test(expected = InvalidDataAccessApiUsageException.class)
 	public void lPushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
+
 		connection.listCommands()
 				.lPush(
 						Mono.just(PushCommand.values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
@@ -114,6 +115,18 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 		nativeCommands.lpush(KEY_1, VALUE_1, VALUE_2);
 
 		assertThat(connection.listCommands().lLen(KEY_1_BBUFFER).block(), is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lRangeShouldReturnValuesCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.listCommands().lRange(KEY_1_BBUFFER, 1, 2).block(),
+				contains(VALUE_2_BBUFFER, VALUE_3_BBUFFER));
 	}
 
 }

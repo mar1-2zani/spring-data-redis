@@ -27,6 +27,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.Command
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.data.redis.connection.RedisStringCommands.BitOperation;
 import org.springframework.data.redis.connection.RedisStringCommands.SetOption;
 import org.springframework.data.redis.core.types.Expiration;
@@ -447,40 +448,6 @@ public interface ReactiveStringCommands {
 			Publisher<ReactiveStringCommands.AppendCommand> source);
 
 	/**
-	 * @author Christoph Strobl
-	 */
-	public static class GetRangeCommand extends KeyCommand {
-
-		Range<Long> range;
-
-		public GetRangeCommand(ByteBuffer key, Range<Long> range) {
-
-			super(key);
-			this.range = range != null ? range : new Range<Long>(0L, Long.MAX_VALUE);
-		}
-
-		public static ReactiveStringCommands.GetRangeCommand get(ByteBuffer key) {
-			return new GetRangeCommand(key, null);
-		}
-
-		public ReactiveStringCommands.GetRangeCommand within(Range<Long> range) {
-			return new GetRangeCommand(getKey(), range);
-		}
-
-		public ReactiveStringCommands.GetRangeCommand fromIndex(Long start) {
-			return new GetRangeCommand(getKey(), new Range<Long>(start, range.getUpperBound()));
-		}
-
-		public ReactiveStringCommands.GetRangeCommand toIndex(Long end) {
-			return new GetRangeCommand(getKey(), new Range<Long>(range.getLowerBound(), end));
-		}
-
-		public Range<Long> getRange() {
-			return range;
-		}
-	}
-
-	/**
 	 * Get a substring of value of {@code key} between {@code begin} and {@code end}.
 	 *
 	 * @param key must not be {@literal null}.
@@ -496,7 +463,7 @@ public interface ReactiveStringCommands {
 			return Mono.error(e);
 		}
 
-		return getRange(Mono.just(GetRangeCommand.get(key).fromIndex(begin).toIndex(end))).next()
+		return getRange(Mono.just(RangeCommand.key(key).fromIndex(begin).toIndex(end))).next()
 				.map(ByteBufferResponse::getOutput);
 	}
 
@@ -508,8 +475,7 @@ public interface ReactiveStringCommands {
 	 * @param end
 	 * @return
 	 */
-	Flux<ByteBufferResponse<ReactiveStringCommands.GetRangeCommand>> getRange(
-			Publisher<ReactiveStringCommands.GetRangeCommand> commands);
+	Flux<ByteBufferResponse<RangeCommand>> getRange(Publisher<RangeCommand> commands);
 
 	/**
 	 * @author Christoph Strobl
