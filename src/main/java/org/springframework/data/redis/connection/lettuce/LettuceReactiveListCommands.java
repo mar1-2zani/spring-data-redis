@@ -219,4 +219,37 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lPop(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<ByteBufferResponse<KeyCommand>> lPop(Publisher<KeyCommand> commands) {
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
+						.convert(cmd.lpop(command.getKey().array()).map(ByteBuffer::wrap))
+						.map(value -> new ByteBufferResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#rPop(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<ByteBufferResponse<KeyCommand>> rPop(Publisher<KeyCommand> commands) {
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
+						.convert(cmd.rpop(command.getKey().array()).map(ByteBuffer::wrap))
+						.map(value -> new ByteBufferResponse<>(command, value));
+			});
+		});
+	}
+
 }

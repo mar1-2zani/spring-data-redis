@@ -539,4 +539,54 @@ public interface ReactiveListCommands {
 	 */
 	Flux<NumericResponse<LRemCommand, Long>> lRem(Publisher<LRemCommand> commands);
 
+	/**
+	 * Removes and returns first element in list stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> lPop(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lPop(Mono.just(new KeyCommand(key))).next().map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Removes and returns first element in list stored at {@link KeyCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<ByteBufferResponse<KeyCommand>> lPop(Publisher<KeyCommand> commands);
+
+	/**
+	 * Removes and returns last element in list stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> rPop(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return rPop(Mono.just(new KeyCommand(key))).next().map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Removes and returns last element in list stored at {@link KeyCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<ByteBufferResponse<KeyCommand>> rPop(Publisher<KeyCommand> commands);
+
 }

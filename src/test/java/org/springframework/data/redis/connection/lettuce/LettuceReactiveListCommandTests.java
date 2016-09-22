@@ -232,4 +232,28 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 		assertThat(connection.listCommands().lRem(KEY_1_BBUFFER, -1L, VALUE_1_BBUFFER).block(), is(1L));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2, VALUE_3));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lPopSouldRemoveFirstValueCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.listCommands().lPop(KEY_1_BBUFFER).block(), is(equalTo(VALUE_1_BBUFFER)));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_2, VALUE_3));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void rPopSouldRemoveFirstValueCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.listCommands().rPop(KEY_1_BBUFFER).block(), is(equalTo(VALUE_3_BBUFFER)));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2));
+	}
 }
