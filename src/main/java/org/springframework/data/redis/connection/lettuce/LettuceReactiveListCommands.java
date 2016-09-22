@@ -18,6 +18,7 @@ package org.springframework.data.redis.connection.lettuce;
 import java.nio.ByteBuffer;
 
 import org.reactivestreams.Publisher;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
@@ -54,12 +55,40 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 
 			return Flux.from(commands).flatMap(command -> {
 
+				if (!command.getUpsert() && command.getValues().size() > 1) {
+					throw new InvalidDataAccessApiUsageException("RPUSHX only allows one value!");
+				}
+
 				byte[][] values = command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
 
-				return LettuceReactiveRedisConnection.<Long> monoConverter()
-						.convert(cmd.rpush(command.getKey().array(), values)).map(value -> new NumericResponse<>(command, value));
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(command.getUpsert()
+						? cmd.rpush(command.getKey().array(), values) : cmd.rpushx(command.getKey().array(), values[0]))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lPush(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<PushCommand, Long>> lPush(Publisher<PushCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				if (!command.getUpsert() && command.getValues().size() > 1) {
+					throw new InvalidDataAccessApiUsageException("LPUSHX only allows one value!");
+				}
+
+				byte[][] values = command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(command.getUpsert()
+						? cmd.lpush(command.getKey().array(), values) : cmd.lpushx(command.getKey().array(), values[0]))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
 	}
 }

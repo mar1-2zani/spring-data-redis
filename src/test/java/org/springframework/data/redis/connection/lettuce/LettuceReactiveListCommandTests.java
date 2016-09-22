@@ -22,6 +22,10 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.redis.connection.ReactiveListCommands.PushCommand;
+
+import reactor.core.publisher.Mono;
 
 /**
  * @author Christoph Strobl
@@ -40,4 +44,65 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 				is(3L));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2, VALUE_3));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lPushShouldPrependValuesCorrectly() {
+
+		nativeCommands.lpush(KEY_1, VALUE_1);
+
+		assertThat(connection.listCommands().lPush(KEY_1_BBUFFER, Arrays.asList(VALUE_2_BBUFFER, VALUE_3_BBUFFER)).block(),
+				is(3L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_3, VALUE_2, VALUE_1));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void rPushXShouldAppendValuesCorrectly() {
+
+		nativeCommands.lpush(KEY_1, VALUE_1);
+
+		assertThat(connection.listCommands().rPushX(KEY_1_BBUFFER, VALUE_2_BBUFFER).block(), is(2L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lPushXShouldPrependValuesCorrectly() {
+
+		nativeCommands.lpush(KEY_1, VALUE_1);
+
+		assertThat(connection.listCommands().lPushX(KEY_1_BBUFFER, VALUE_2_BBUFFER).block(), is(2L));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_2, VALUE_1));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test(expected = InvalidDataAccessApiUsageException.class)
+	public void rPushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
+
+		connection.listCommands()
+				.rPush(
+						Mono.just(PushCommand.values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
+				.blockFirst();
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test(expected = InvalidDataAccessApiUsageException.class)
+	public void lPushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
+		connection.listCommands()
+				.lPush(
+						Mono.just(PushCommand.values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
+				.blockFirst();
+	}
+
 }

@@ -16,6 +16,7 @@
 package org.springframework.data.redis.connection;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
@@ -38,22 +39,36 @@ public interface ReactiveListCommands {
 	public class PushCommand extends KeyCommand {
 
 		private List<ByteBuffer> values;
+		private boolean upsert;
 
-		public PushCommand(ByteBuffer key, List<ByteBuffer> values) {
+		private PushCommand(ByteBuffer key, List<ByteBuffer> values, boolean upsert) {
 			super(key);
 			this.values = values;
+			this.upsert = upsert;
+		}
+
+		public static PushCommand value(ByteBuffer value) {
+			return new PushCommand(null, Collections.singletonList(value), true);
 		}
 
 		public static PushCommand values(List<ByteBuffer> values) {
-			return new PushCommand(null, values);
+			return new PushCommand(null, values, true);
 		}
 
 		public PushCommand to(ByteBuffer key) {
-			return new PushCommand(key, values);
+			return new PushCommand(key, values, upsert);
+		}
+
+		public PushCommand ifExists() {
+			return new PushCommand(getKey(), values, false);
 		}
 
 		public List<ByteBuffer> getValues() {
 			return values;
+		}
+
+		public boolean getUpsert() {
+			return upsert;
 		}
 	}
 
@@ -77,10 +92,76 @@ public interface ReactiveListCommands {
 	}
 
 	/**
+	 * Append {@code values} to {@code key} only if {@code key} already exists.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> rPushX(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "command must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return rPush(Mono.just(PushCommand.value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
+	}
+
+	/**
 	 * Append {@link PushCommand#getValues()} to {@link PushCommand#getKey()}.
 	 *
 	 * @param commands must not be {@literal null}.
 	 * @return
 	 */
 	Flux<NumericResponse<PushCommand, Long>> rPush(Publisher<PushCommand> commands);
+
+	/**
+	 * Prepend {@code values} to {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lPush(ByteBuffer key, List<ByteBuffer> values) {
+
+		try {
+			Assert.notNull(key, "command must not be null!");
+			Assert.notNull(values, "Values must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lPush(Mono.just(PushCommand.values(values).to(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Prepend {@code value} to {@code key} if {@code key} already exists.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lPushX(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "command must not be null!");
+			Assert.notNull(value, "Value must not be null!");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lPush(Mono.just(PushCommand.value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Prepend {@link PushCommand#getValues()} to {@link PushCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<PushCommand, Long>> lPush(Publisher<PushCommand> commands);
+
 }
