@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -218,5 +219,32 @@ public interface ReactiveListCommands {
 	 * @return
 	 */
 	Flux<MultiValueResponse<RangeCommand, ByteBuffer>> lRange(Publisher<RangeCommand> commands);
+
+	/**
+	 * Trim list at {@code key} to elements between {@code begin} and {@code end}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param start
+	 * @param end
+	 * @return
+	 */
+	default Mono<Boolean> lTrim(ByteBuffer key, long start, long end) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lTrim(Mono.just(RangeCommand.key(key).fromIndex(start).toIndex(end))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Trim list at {@link RangeCommand#getKey()} to elements within {@link RangeCommand#getRange()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<RangeCommand>> lTrim(Publisher<RangeCommand> commands);
 
 }

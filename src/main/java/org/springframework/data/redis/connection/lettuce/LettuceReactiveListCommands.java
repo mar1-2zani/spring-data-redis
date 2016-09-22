@@ -21,6 +21,7 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -126,6 +127,24 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 						.convert(cmd.lrange(command.getKey().array(), command.getRange().getLowerBound(),
 								command.getRange().getUpperBound()).map(ByteBuffer::wrap).toList())
 						.map(value -> new MultiValueResponse<RangeCommand, ByteBuffer>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lTrim(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<BooleanResponse<RangeCommand>> lTrim(Publisher<RangeCommand> commands) {
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd
+								.ltrim(command.getKey().array(), command.getRange().getLowerBound(), command.getRange().getUpperBound())
+								.map(LettuceConverters::stringToBoolean))
+						.map(value -> new BooleanResponse<>(command, value));
 			});
 		});
 	}
