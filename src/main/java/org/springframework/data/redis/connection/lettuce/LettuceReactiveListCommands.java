@@ -185,4 +185,22 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lSet(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<BooleanResponse<LSetCommand>> lSet(Publisher<LSetCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.lset(command.getKey().array(), command.getIndex(), command.getValue().array())
+								.map(LettuceConverters::stringToBoolean))
+						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
 }

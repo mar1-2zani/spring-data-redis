@@ -182,4 +182,17 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 				is(3L));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2, VALUE_3));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lSetSouldSetValueCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(connection.listCommands().lSet(KEY_1_BBUFFER, 1L, VALUE_3_BBUFFER).block(), is(true));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_3));
+		assertThat(nativeCommands.lrange(KEY_1, 0, -1), not(contains(VALUE_2)));
+	}
 }

@@ -380,4 +380,68 @@ public interface ReactiveListCommands {
 	 */
 	Flux<NumericResponse<LInsertCommand, Long>> lInsert(Publisher<LInsertCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class LSetCommand extends KeyCommand {
+
+		private final Long index;
+		private final ByteBuffer value;
+
+		private LSetCommand(ByteBuffer key, Long index, ByteBuffer value) {
+
+			super(key);
+			this.index = index;
+			this.value = value;
+		}
+
+		public static LSetCommand elementAt(Long index) {
+			return new LSetCommand(null, index, null);
+		}
+
+		public LSetCommand to(ByteBuffer value) {
+			return new LSetCommand(getKey(), index, value);
+		}
+
+		public LSetCommand forKey(ByteBuffer key) {
+			return new LSetCommand(key, index, value);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+
+		public Long getIndex() {
+			return index;
+		}
+	}
+
+	/**
+	 * Set the {@code value} list element at {@code index}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param index
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> lSet(ByteBuffer key, long index, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lSet(Mono.just(LSetCommand.elementAt(index).to(value).forKey(key))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set the {@link LSetCommand#getValue()} list element at {@link LSetCommand#getKey()}.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<BooleanResponse<LSetCommand>> lSet(Publisher<LSetCommand> commands);
+
 }
