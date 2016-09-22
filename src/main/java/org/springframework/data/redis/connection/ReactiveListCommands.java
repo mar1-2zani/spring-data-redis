@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -246,5 +247,57 @@ public interface ReactiveListCommands {
 	 * @return
 	 */
 	Flux<BooleanResponse<RangeCommand>> lTrim(Publisher<RangeCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class LIndexCommand extends KeyCommand {
+
+		private final Long index;
+
+		private LIndexCommand(ByteBuffer key, Long index) {
+
+			super(key);
+			this.index = index;
+		}
+
+		public static LIndexCommand elementAt(Long index) {
+			return new LIndexCommand(null, index);
+		}
+
+		public LIndexCommand from(ByteBuffer key) {
+			return new LIndexCommand(key, index);
+		}
+
+		public Long getIndex() {
+			return index;
+		}
+	}
+
+	/**
+	 * Get element at {@code index} form list at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param index
+	 * @return
+	 */
+	default Mono<ByteBuffer> lIndex(ByteBuffer key, long index) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lIndex(Mono.just(LIndexCommand.elementAt(index).from(key))).next().map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Get element at {@link LIndexCommand#getIndex()} form list at {@link LIndexCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<ByteBufferResponse<LIndexCommand>> lIndex(Publisher<LIndexCommand> commands);
 
 }

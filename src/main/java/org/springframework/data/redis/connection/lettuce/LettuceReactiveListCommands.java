@@ -22,6 +22,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -145,6 +146,23 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 								.ltrim(command.getKey().array(), command.getRange().getLowerBound(), command.getRange().getUpperBound())
 								.map(LettuceConverters::stringToBoolean))
 						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lIndex(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<ByteBufferResponse<LIndexCommand>> lIndex(Publisher<LIndexCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
+						.convert(cmd.lindex(command.getKey().array(), command.getIndex()).map(ByteBuffer::wrap))
+						.map(value -> new ByteBufferResponse<>(command, value));
 			});
 		});
 	}

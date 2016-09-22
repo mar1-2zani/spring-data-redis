@@ -17,6 +17,7 @@ package org.springframework.data.redis.connection.lettuce;
 
 import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsEqual.*;
 import static org.hamcrest.core.IsNot.*;
 import static org.junit.Assert.*;
 
@@ -140,6 +141,17 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 
 		assertThat(connection.listCommands().lTrim(KEY_1_BBUFFER, 1, 2).block(), is(true));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), not(contains(VALUE_1_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lIndexShouldReturnValueCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.listCommands().lIndex(KEY_1_BBUFFER, 1).block(), is(equalTo(VALUE_2_BBUFFER)));
 	}
 
 }
