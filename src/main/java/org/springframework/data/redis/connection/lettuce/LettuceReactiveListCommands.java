@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
 
@@ -87,6 +88,22 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(command.getUpsert()
 						? cmd.lpush(command.getKey().array(), values) : cmd.lpushx(command.getKey().array(), values[0]))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lLen(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<KeyCommand, Long>> lLen(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.llen(command.getKey().array()))
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});

@@ -164,4 +164,29 @@ public interface ReactiveListCommands {
 	 */
 	Flux<NumericResponse<PushCommand, Long>> lPush(Publisher<PushCommand> commands);
 
+	/**
+	 * Get the size of list stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> lLen(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return lLen(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get the size of list stored at {@link KeyCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<KeyCommand, Long>> lLen(Publisher<KeyCommand> commands);
+
 }

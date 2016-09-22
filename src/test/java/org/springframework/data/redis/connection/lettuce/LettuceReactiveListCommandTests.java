@@ -105,4 +105,15 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 				.blockFirst();
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void lLenShouldReturnSizeCorrectly() {
+
+		nativeCommands.lpush(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(connection.listCommands().lLen(KEY_1_BBUFFER).block(), is(2L));
+	}
+
 }
