@@ -765,4 +765,61 @@ public interface ReactiveListCommands {
 	 */
 	Flux<PopResponse> bPop(Publisher<BPopCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class RPopLPushCommand extends KeyCommand {
+
+		private final ByteBuffer destination;
+
+		private RPopLPushCommand(ByteBuffer key, ByteBuffer destination) {
+
+			super(key);
+			this.destination = destination;
+		}
+
+		public static RPopLPushCommand from(ByteBuffer key) {
+			return new RPopLPushCommand(key, null);
+		}
+
+		public RPopLPushCommand to(ByteBuffer key) {
+			return new RPopLPushCommand(getKey(), key);
+		}
+
+		public ByteBuffer getDestination() {
+			return destination;
+		}
+
+	}
+
+	/**
+	 * Remove the last element from list at {@code source}, append it to {@code destination} and return its value.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> rPopLPush(ByteBuffer source, ByteBuffer destination) {
+
+		try {
+			Assert.notNull(source, "source must not be null");
+			Assert.notNull(destination, "destination must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return rPopLPush(Mono.just(RPopLPushCommand.from(source).to(destination))).next()
+				.map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Remove the last element from list at {@link RPopLPushCommand#getKey()}, append it to
+	 * {@link RPopLPushCommand#getDestination()} and return its value.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	Flux<ByteBufferResponse<RPopLPushCommand>> rPopLPush(Publisher<RPopLPushCommand> commands);
+
 }

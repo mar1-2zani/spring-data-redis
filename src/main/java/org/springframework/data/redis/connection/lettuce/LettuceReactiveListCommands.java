@@ -254,4 +254,21 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#rPopLPush(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<ByteBufferResponse<RPopLPushCommand>> rPopLPush(Publisher<RPopLPushCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
+						.convert(cmd.rpoplpush(command.getKey().array(), command.getDestination().array()).map(ByteBuffer::wrap))
+						.map(value -> new ByteBufferResponse<>(command, value));
+			});
+		});
+	}
+
 }

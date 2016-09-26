@@ -21,6 +21,7 @@ import static org.hamcrest.core.IsEqual.*;
 import static org.hamcrest.core.IsNot.*;
 import static org.junit.Assert.*;
 
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Arrays;
 
@@ -273,5 +274,21 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 				.brPop(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER), Duration.ofSeconds(1L)).block();
 		assertThat(result.getKey(), is(equalTo(KEY_1_BBUFFER)));
 		assertThat(result.getValue(), is(equalTo(VALUE_3_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void rPopLPushShouldWorkCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+		nativeCommands.rpush(KEY_2, VALUE_1);
+
+		ByteBuffer result = connection.listCommands().rPopLPush(KEY_1_BBUFFER, KEY_2_BBUFFER).block();
+
+		assertThat(result, is(equalTo(VALUE_3_BBUFFER)));
+		assertThat(nativeCommands.llen(KEY_2), is(2L));
+		assertThat(nativeCommands.lindex(KEY_2, 0), is(equalTo(VALUE_3)));
 	}
 }
