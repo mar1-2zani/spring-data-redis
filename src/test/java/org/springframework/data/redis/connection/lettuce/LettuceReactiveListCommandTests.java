@@ -91,23 +91,11 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 	 * @see DATAREDIS-525
 	 */
 	@Test(expected = InvalidDataAccessApiUsageException.class)
-	public void rPushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
+	public void pushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
 
 		connection.listCommands()
-				.rPush(
-						Mono.just(PushCommand.values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
-				.blockFirst();
-	}
-
-	/**
-	 * @see DATAREDIS-525
-	 */
-	@Test(expected = InvalidDataAccessApiUsageException.class)
-	public void lPushShouldThrowErrorForMoreThanOneValueWhenUsingExistsOption() {
-
-		connection.listCommands()
-				.lPush(
-						Mono.just(PushCommand.values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
+				.push(Mono.just(
+						PushCommand.right().values(Arrays.asList(VALUE_1_BBUFFER, VALUE_2_BBUFFER)).to(KEY_1_BBUFFER).ifExists()))
 				.blockFirst();
 	}
 

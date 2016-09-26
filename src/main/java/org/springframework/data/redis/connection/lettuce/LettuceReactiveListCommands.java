@@ -23,7 +23,6 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
-import org.springframework.data.redis.connection.ReactiveListCommands.BPopCommand.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
@@ -58,47 +57,33 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.springframework.data.redis.connection.ReactiveListCommands#rPush(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Flux<NumericResponse<PushCommand, Long>> rPush(Publisher<PushCommand> commands) {
-
-		return connection.execute(cmd -> {
-
-			return Flux.from(commands).flatMap(command -> {
-
-				if (!command.getUpsert() && command.getValues().size() > 1) {
-					throw new InvalidDataAccessApiUsageException("RPUSHX only allows one value!");
-				}
-
-				byte[][] values = command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
-
-				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(command.getUpsert()
-						? cmd.rpush(command.getKey().array(), values) : cmd.rpushx(command.getKey().array(), values[0]))
-						.map(value -> new NumericResponse<>(command, value));
-			});
-		});
-	}
-
-	/*
-	 * (non-Javadoc)
 	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lPush(org.reactivestreams.Publisher)
 	 */
 	@Override
-	public Flux<NumericResponse<PushCommand, Long>> lPush(Publisher<PushCommand> commands) {
+	public Flux<NumericResponse<PushCommand, Long>> push(Publisher<PushCommand> commands) {
 
 		return connection.execute(cmd -> {
 
 			return Flux.from(commands).flatMap(command -> {
 
 				if (!command.getUpsert() && command.getValues().size() > 1) {
-					throw new InvalidDataAccessApiUsageException("LPUSHX only allows one value!");
+					throw new InvalidDataAccessApiUsageException(
+							String.format("%s PUSHX only allows one value!", command.getDirection()));
 				}
 
 				byte[][] values = command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
 
-				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(command.getUpsert()
-						? cmd.lpush(command.getKey().array(), values) : cmd.lpushx(command.getKey().array(), values[0]))
+				Observable<Long> pushResult = null;
+
+				if (ObjectUtils.nullSafeEquals(Direction.RIGHT, command.getDirection())) {
+					pushResult = command.getUpsert() ? cmd.rpush(command.getKey().array(), values)
+							: cmd.rpushx(command.getKey().array(), values[0]);
+				} else {
+					pushResult = command.getUpsert() ? cmd.lpush(command.getKey().array(), values)
+							: cmd.lpushx(command.getKey().array(), values[0]);
+				}
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(pushResult)
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
@@ -227,31 +212,18 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.springframework.data.redis.connection.ReactiveListCommands#lPop(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Flux<ByteBufferResponse<KeyCommand>> lPop(Publisher<KeyCommand> commands) {
-		return connection.execute(cmd -> {
-
-			return Flux.from(commands).flatMap(command -> {
-				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
-						.convert(cmd.lpop(command.getKey().array()).map(ByteBuffer::wrap))
-						.map(value -> new ByteBufferResponse<>(command, value));
-			});
-		});
-	}
-
-	/*
-	 * (non-Javadoc)
 	 * @see org.springframework.data.redis.connection.ReactiveListCommands#rPop(org.reactivestreams.Publisher)
 	 */
 	@Override
-	public Flux<ByteBufferResponse<KeyCommand>> rPop(Publisher<KeyCommand> commands) {
+	public Flux<ByteBufferResponse<PopCommand>> pop(Publisher<PopCommand> commands) {
 		return connection.execute(cmd -> {
 
 			return Flux.from(commands).flatMap(command -> {
-				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
-						.convert(cmd.rpop(command.getKey().array()).map(ByteBuffer::wrap))
+
+				Observable<byte[]> popResult = ObjectUtils.nullSafeEquals(Direction.RIGHT, command.getDirection())
+						? cmd.rpop(command.getKey().array()) : cmd.lpop(command.getKey().array());
+
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter().convert(popResult.map(ByteBuffer::wrap))
 						.map(value -> new ByteBufferResponse<>(command, value));
 			});
 		});

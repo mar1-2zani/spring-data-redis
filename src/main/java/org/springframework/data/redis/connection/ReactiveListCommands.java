@@ -56,27 +56,38 @@ public interface ReactiveListCommands {
 
 		private List<ByteBuffer> values;
 		private boolean upsert;
+		private Direction direction;
 
-		private PushCommand(ByteBuffer key, List<ByteBuffer> values, boolean upsert) {
+		private PushCommand(ByteBuffer key, List<ByteBuffer> values, Direction direction, boolean upsert) {
+
 			super(key);
 			this.values = values;
 			this.upsert = upsert;
+			this.direction = direction;
 		}
 
-		public static PushCommand value(ByteBuffer value) {
-			return new PushCommand(null, Collections.singletonList(value), true);
+		public static PushCommand right() {
+			return new PushCommand(null, null, Direction.RIGHT, true);
 		}
 
-		public static PushCommand values(List<ByteBuffer> values) {
-			return new PushCommand(null, values, true);
+		public static PushCommand left() {
+			return new PushCommand(null, null, Direction.LEFT, true);
+		}
+
+		public PushCommand value(ByteBuffer value) {
+			return new PushCommand(null, Collections.singletonList(value), direction, upsert);
+		}
+
+		public PushCommand values(List<ByteBuffer> values) {
+			return new PushCommand(null, values, direction, upsert);
 		}
 
 		public PushCommand to(ByteBuffer key) {
-			return new PushCommand(key, values, upsert);
+			return new PushCommand(key, values, direction, upsert);
 		}
 
 		public PushCommand ifExists() {
-			return new PushCommand(getKey(), values, false);
+			return new PushCommand(getKey(), values, direction, false);
 		}
 
 		public List<ByteBuffer> getValues() {
@@ -85,6 +96,10 @@ public interface ReactiveListCommands {
 
 		public boolean getUpsert() {
 			return upsert;
+		}
+
+		public Direction getDirection() {
+			return direction;
 		}
 	}
 
@@ -104,7 +119,7 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return rPush(Mono.just(PushCommand.values(values).to(key))).next().map(NumericResponse::getOutput);
+		return push(Mono.just(PushCommand.right().values(values).to(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**
@@ -123,16 +138,8 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return rPush(Mono.just(PushCommand.value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
+		return push(Mono.just(PushCommand.right().value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
 	}
-
-	/**
-	 * Append {@link PushCommand#getValues()} to {@link PushCommand#getKey()}.
-	 *
-	 * @param commands must not be {@literal null}.
-	 * @return
-	 */
-	Flux<NumericResponse<PushCommand, Long>> rPush(Publisher<PushCommand> commands);
 
 	/**
 	 * Prepend {@code values} to {@code key}.
@@ -150,7 +157,7 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return lPush(Mono.just(PushCommand.values(values).to(key))).next().map(NumericResponse::getOutput);
+		return push(Mono.just(PushCommand.left().values(values).to(key))).next().map(NumericResponse::getOutput);
 	}
 
 	/**
@@ -169,7 +176,7 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return lPush(Mono.just(PushCommand.value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
+		return push(Mono.just(PushCommand.left().value(value).to(key).ifExists())).next().map(NumericResponse::getOutput);
 	}
 
 	/**
@@ -178,7 +185,7 @@ public interface ReactiveListCommands {
 	 * @param commands must not be {@literal null}.
 	 * @return
 	 */
-	Flux<NumericResponse<PushCommand, Long>> lPush(Publisher<PushCommand> commands);
+	Flux<NumericResponse<PushCommand, Long>> push(Publisher<PushCommand> commands);
 
 	/**
 	 * Get the size of list stored at {@code key}.
@@ -551,6 +558,37 @@ public interface ReactiveListCommands {
 	Flux<NumericResponse<LRemCommand, Long>> lRem(Publisher<LRemCommand> commands);
 
 	/**
+	 * @author Christoph Strobl
+	 */
+	public class PopCommand extends KeyCommand {
+
+		private final Direction direction;
+
+		public PopCommand(ByteBuffer key, Direction direction) {
+
+			super(key);
+			this.direction = direction;
+		}
+
+		public static PopCommand right() {
+			return new PopCommand(null, Direction.RIGHT);
+		}
+
+		public static PopCommand left() {
+			return new PopCommand(null, Direction.LEFT);
+		}
+
+		public PopCommand from(ByteBuffer key) {
+			return new PopCommand(key, direction);
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+
+	}
+
+	/**
 	 * Removes and returns first element in list stored at {@code key}.
 	 *
 	 * @param key must not be {@literal null}.
@@ -564,16 +602,8 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return lPop(Mono.just(new KeyCommand(key))).next().map(ByteBufferResponse::getOutput);
+		return pop(Mono.just(PopCommand.left().from(key))).next().map(ByteBufferResponse::getOutput);
 	}
-
-	/**
-	 * Removes and returns first element in list stored at {@link KeyCommand#getKey()}
-	 *
-	 * @param commands must not be {@literal null}.
-	 * @return
-	 */
-	Flux<ByteBufferResponse<KeyCommand>> lPop(Publisher<KeyCommand> commands);
 
 	/**
 	 * Removes and returns last element in list stored at {@code key}.
@@ -589,7 +619,7 @@ public interface ReactiveListCommands {
 			return Mono.error(e);
 		}
 
-		return rPop(Mono.just(new KeyCommand(key))).next().map(ByteBufferResponse::getOutput);
+		return pop(Mono.just(PopCommand.right().from(key))).next().map(ByteBufferResponse::getOutput);
 	}
 
 	/**
@@ -598,7 +628,7 @@ public interface ReactiveListCommands {
 	 * @param commands must not be {@literal null}.
 	 * @return
 	 */
-	Flux<ByteBufferResponse<KeyCommand>> rPop(Publisher<KeyCommand> commands);
+	Flux<ByteBufferResponse<PopCommand>> pop(Publisher<PopCommand> commands);
 
 	/**
 	 * @author Christoph Strobl
