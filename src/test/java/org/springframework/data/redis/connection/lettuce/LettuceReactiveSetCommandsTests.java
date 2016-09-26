@@ -16,6 +16,7 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsNull.*;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
@@ -65,6 +66,25 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 				is(2L));
 		assertThat(nativeCommands.sismember(KEY_1, VALUE_1), is(false));
 		assertThat(nativeCommands.sismember(KEY_1, VALUE_2), is(false));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sPopShouldRetrieveRandomValue() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sPop(KEY_1_BBUFFER).block(), is(notNullValue()));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sPopShouldReturnNullWhenNotPresent() {
+		assertThat(connection.setCommands().sPop(KEY_1_BBUFFER).block(), is(nullValue()));
 	}
 
 }

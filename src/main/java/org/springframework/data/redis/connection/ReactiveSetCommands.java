@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
@@ -182,5 +183,30 @@ public interface ReactiveSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<SRemCommand, Long>> sRem(Publisher<SRemCommand> commands);
+
+	/**
+	 * Remove and return a random member from set at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> sPop(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sPop(Mono.just(new KeyCommand(key))).next().map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Remove and return a random member from set at {@link KeyCommand#getKey()}
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<ByteBufferResponse<KeyCommand>> sPop(Publisher<KeyCommand> commands);
 
 }

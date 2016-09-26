@@ -18,6 +18,8 @@ package org.springframework.data.redis.connection.lettuce;
 import java.nio.ByteBuffer;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveSetCommands;
 import org.springframework.util.Assert;
@@ -48,6 +50,7 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 	 */
 	@Override
 	public Flux<NumericResponse<SAddCommand, Long>> sAdd(Publisher<SAddCommand> commands) {
+
 		return connection.execute(cmd -> {
 
 			return Flux.from(commands).flatMap(command -> {
@@ -66,6 +69,7 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 	 */
 	@Override
 	public Flux<NumericResponse<SRemCommand, Long>> sRem(Publisher<SRemCommand> commands) {
+
 		return connection.execute(cmd -> {
 
 			return Flux.from(commands).flatMap(command -> {
@@ -74,6 +78,23 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 						.convert(cmd.srem(command.getKey().array(),
 								command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
 						.map(value -> new NumericResponse<SRemCommand, Long>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sPop(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<ByteBufferResponse<KeyCommand>> sPop(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
+						.convert(cmd.spop(command.getKey().array()).map(ByteBuffer::wrap))
+						.map(value -> new ByteBufferResponse<>(command, value));
 			});
 		});
 	}
