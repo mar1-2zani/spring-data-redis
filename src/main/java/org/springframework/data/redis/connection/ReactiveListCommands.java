@@ -778,12 +778,12 @@ public interface ReactiveListCommands {
 			this.destination = destination;
 		}
 
-		public static RPopLPushCommand from(ByteBuffer key) {
-			return new RPopLPushCommand(key, null);
+		public static RPopLPushCommand from(ByteBuffer sourceKey) {
+			return new RPopLPushCommand(sourceKey, null);
 		}
 
-		public RPopLPushCommand to(ByteBuffer key) {
-			return new RPopLPushCommand(getKey(), key);
+		public RPopLPushCommand to(ByteBuffer destinationKey) {
+			return new RPopLPushCommand(getKey(), destinationKey);
 		}
 
 		public ByteBuffer getDestination() {
@@ -822,4 +822,71 @@ public interface ReactiveListCommands {
 	 */
 	Flux<ByteBufferResponse<RPopLPushCommand>> rPopLPush(Publisher<RPopLPushCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class BRPopLPushCommand extends KeyCommand {
+
+		private final ByteBuffer destination;
+		private final Duration timeout;
+
+		private BRPopLPushCommand(ByteBuffer key, ByteBuffer destination, Duration timeout) {
+
+			super(key);
+			this.destination = destination;
+			this.timeout = timeout;
+		}
+
+		public static BRPopLPushCommand from(ByteBuffer sourceKey) {
+			return new BRPopLPushCommand(sourceKey, null, null);
+		}
+
+		public BRPopLPushCommand to(ByteBuffer destinationKey) {
+			return new BRPopLPushCommand(getKey(), destinationKey, timeout);
+		}
+
+		public BRPopLPushCommand blockingFor(Duration timeout) {
+			return new BRPopLPushCommand(getKey(), destination, timeout);
+		}
+
+		public ByteBuffer getDestination() {
+			return destination;
+		}
+
+		public Duration getTimeout() {
+			return timeout;
+		}
+	}
+
+	/**
+	 * Remove the last element from list at {@code source}, append it to {@code destination} and return its value.
+	 * <b>Blocks connection</b> until element available or {@code timeout} reached. <br />
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> bRPopLPush(ByteBuffer source, ByteBuffer destination, Duration timeout) {
+
+		try {
+			Assert.notNull(source, "source must not be null");
+			Assert.notNull(destination, "destination must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bRPopLPush(Mono.just(BRPopLPushCommand.from(source).to(destination).blockingFor(timeout))).next()
+				.map(ByteBufferResponse::getOutput);
+	}
+
+	/**
+	 * Remove the last element from list at {@link BRPopLPushCommand#getKey()}, append it to
+	 * {@link BRPopLPushCommand#getDestination()} and return its value. <br />
+	 * <b>Blocks connection</b> until element available or {@link BRPopLPushCommand#getTimeout()} reached.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param destination must not be {@literal null}.
+	 * @return
+	 */
+	Flux<ByteBufferResponse<BRPopLPushCommand>> bRPopLPush(Publisher<BRPopLPushCommand> commands);
 }

@@ -291,4 +291,21 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 		assertThat(nativeCommands.llen(KEY_2), is(2L));
 		assertThat(nativeCommands.lindex(KEY_2, 0), is(equalTo(VALUE_3)));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void brPopLPushShouldWorkCorrectly() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+		nativeCommands.rpush(KEY_2, VALUE_1);
+
+		ByteBuffer result = connection.listCommands().bRPopLPush(KEY_1_BBUFFER, KEY_2_BBUFFER, Duration.ofSeconds(1))
+				.block();
+
+		assertThat(result, is(equalTo(VALUE_3_BBUFFER)));
+		assertThat(nativeCommands.llen(KEY_2), is(2L));
+		assertThat(nativeCommands.lindex(KEY_2, 0), is(equalTo(VALUE_3)));
+	}
 }
