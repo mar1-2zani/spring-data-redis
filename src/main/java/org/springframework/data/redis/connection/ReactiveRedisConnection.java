@@ -64,6 +64,13 @@ public interface ReactiveRedisConnection extends Closeable {
 	 */
 	ReactiveListCommands listCommands();
 
+	/**
+	 * Get {@link ReactiveSetCommands}.
+	 *
+	 * @return never {@literal null}.
+	 */
+	ReactiveSetCommands setCommands();
+
 	static interface Command {
 
 		ByteBuffer getKey();
