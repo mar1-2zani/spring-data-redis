@@ -16,18 +16,22 @@
 package org.springframework.data.redis.connection;
 
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.Command;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.data.redis.connection.RedisListCommands.Position;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -37,6 +41,13 @@ import reactor.core.publisher.Mono;
  * @since 2.0
  */
 public interface ReactiveListCommands {
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public static enum Direction {
+		LEFT, RIGHT
+	}
 
 	/**
 	 * @author Christoph Strobl
@@ -588,5 +599,140 @@ public interface ReactiveListCommands {
 	 * @return
 	 */
 	Flux<ByteBufferResponse<KeyCommand>> rPop(Publisher<KeyCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class BPopCommand implements Command {
+
+		private final List<ByteBuffer> keys;
+		private final Duration timeout;
+		private final Direction direction;
+
+		private BPopCommand(List<ByteBuffer> keys, Duration timeout, Direction direction) {
+			this.keys = keys;
+			this.timeout = timeout;
+			this.direction = direction;
+		}
+
+		public static BPopCommand right() {
+			return new BPopCommand(null, Duration.ZERO, Direction.RIGHT);
+		}
+
+		public static BPopCommand left() {
+			return new BPopCommand(null, Duration.ZERO, Direction.LEFT);
+		}
+
+		public BPopCommand from(List<ByteBuffer> keys) {
+			return new BPopCommand(keys, Duration.ZERO, direction);
+		}
+
+		public BPopCommand blockingFor(Duration timeout) {
+			return new BPopCommand(keys, timeout, direction);
+		}
+
+		@Override
+		public ByteBuffer getKey() {
+			return null;
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+
+		public Duration getTimeout() {
+			return timeout;
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+
+	}
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class PopResult {
+
+		private final List<ByteBuffer> result;
+
+		public PopResult(List<ByteBuffer> result) {
+			this.result = result;
+		}
+
+		public ByteBuffer getKey() {
+			return ObjectUtils.isEmpty(result) ? null : result.get(0);
+		}
+
+		public ByteBuffer getValue() {
+			return ObjectUtils.isEmpty(result) ? null : result.get(1);
+		}
+
+		public List<ByteBuffer> getRaw() {
+			return Collections.unmodifiableList(result);
+		}
+	}
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class PopResponse extends CommandResponse<BPopCommand, PopResult> {
+
+		public PopResponse(BPopCommand input, PopResult output) {
+			super(input, output);
+		}
+
+	}
+
+	/**
+	 * Removes and returns first element from lists stored at {@code keys}. <br>
+	 * <b>Blocks connection</b> until element available or {@code timeout} reached.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param timeout must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<PopResult> blPop(List<ByteBuffer> keys, Duration timeout) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null.");
+			Assert.notNull(timeout, "timeout must not be null.");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bPop(Mono.just(BPopCommand.left().from(keys).blockingFor(timeout))).next().map(PopResponse::getOutput);
+	}
+
+	/**
+	 * Removes and returns last element from lists stored at {@code keys}. <br>
+	 * <b>Blocks connection</b> until element available or {@code timeout} reached.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @param timeout must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<PopResult> brPop(List<ByteBuffer> keys, Duration timeout) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null.");
+			Assert.notNull(timeout, "timeout must not be null.");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return bPop(Mono.just(BPopCommand.right().from(keys).blockingFor(timeout))).next().map(PopResponse::getOutput);
+	}
+
+	/**
+	 * Removes and returns the top {@link BPopCommand#getDirection()} element from lists stored at
+	 * {@link BPopCommand#getKeys()}.<br>
+	 * <b>Blocks connection</b> until element available or {@link BPopCommand#getTimeout()} reached.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<PopResponse> bPop(Publisher<BPopCommand> commands);
 
 }

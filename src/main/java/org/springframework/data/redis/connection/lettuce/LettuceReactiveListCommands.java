@@ -16,11 +16,14 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveListCommands;
+import org.springframework.data.redis.connection.ReactiveListCommands.BPopCommand.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
@@ -29,8 +32,10 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.Numeric
 import org.springframework.data.redis.connection.ReactiveRedisConnection.RangeCommand;
 import org.springframework.data.redis.connection.RedisListCommands.Position;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 
 import reactor.core.publisher.Flux;
+import rx.Observable;
 
 /**
  * @author Christoph Strobl
@@ -248,6 +253,31 @@ public class LettuceReactiveListCommands implements ReactiveListCommands {
 				return LettuceReactiveRedisConnection.<ByteBuffer> monoConverter()
 						.convert(cmd.rpop(command.getKey().array()).map(ByteBuffer::wrap))
 						.map(value -> new ByteBufferResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveListCommands#bPop(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<PopResponse> bPop(Publisher<BPopCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				byte[][] keys = command.getKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
+				long timeout = command.getTimeout().get(ChronoUnit.SECONDS);
+
+				Observable<PopResult> mappedObservable = (ObjectUtils.nullSafeEquals(Direction.RIGHT, command.getDirection())
+						? cmd.brpop(timeout, keys) : cmd.blpop(timeout, keys))
+								.map(kv -> Arrays.asList(ByteBuffer.wrap(kv.key), ByteBuffer.wrap(kv.value)))
+								.map(val -> new PopResult(val));
+
+				return LettuceReactiveRedisConnection.<PopResult> monoConverter().convert(mappedObservable)
+						.map(value -> new PopResponse(command, value));
 			});
 		});
 	}

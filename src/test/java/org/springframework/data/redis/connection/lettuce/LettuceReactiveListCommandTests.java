@@ -21,10 +21,12 @@ import static org.hamcrest.core.IsEqual.*;
 import static org.hamcrest.core.IsNot.*;
 import static org.junit.Assert.*;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 import org.junit.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.redis.connection.ReactiveListCommands.PopResult;
 import org.springframework.data.redis.connection.ReactiveListCommands.PushCommand;
 import org.springframework.data.redis.connection.RedisListCommands.Position;
 
@@ -255,5 +257,33 @@ public class LettuceReactiveListCommandTests extends LettuceReactiveCommandsTest
 
 		assertThat(connection.listCommands().rPop(KEY_1_BBUFFER).block(), is(equalTo(VALUE_3_BBUFFER)));
 		assertThat(nativeCommands.lrange(KEY_1, 0, -1), contains(VALUE_1, VALUE_2));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void blPopShouldReturnFirstAvailable() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		PopResult result = connection.listCommands()
+				.blPop(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER), Duration.ofSeconds(1L)).block();
+		assertThat(result.getKey(), is(equalTo(KEY_1_BBUFFER)));
+		assertThat(result.getValue(), is(equalTo(VALUE_1_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void blPopShouldReturnLastAvailable() {
+
+		nativeCommands.rpush(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		PopResult result = connection.listCommands()
+				.brPop(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER), Duration.ofSeconds(1L)).block();
+		assertThat(result.getKey(), is(equalTo(KEY_1_BBUFFER)));
+		assertThat(result.getValue(), is(equalTo(VALUE_3_BBUFFER)));
 	}
 }
