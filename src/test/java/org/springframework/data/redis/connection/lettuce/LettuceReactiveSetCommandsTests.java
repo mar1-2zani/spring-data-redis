@@ -219,4 +219,16 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 				is(1L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sMembersReadsValuesFromSetCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sMembers(KEY_1_BBUFFER).block(),
+				containsInAnyOrder(VALUE_1_BBUFFER, VALUE_2_BBUFFER, VALUE_3_BBUFFER));
+	}
+
 }

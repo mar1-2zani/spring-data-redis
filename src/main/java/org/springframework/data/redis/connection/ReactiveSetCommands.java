@@ -669,4 +669,29 @@ public interface ReactiveSetCommands {
 	 */
 	Flux<NumericResponse<SDiffStoreCommand, Long>> sDiffStore(Publisher<SDiffStoreCommand> commands);
 
+	/**
+	 * Get all elements of set at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> sMembers(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sMembers(Mono.just(new KeyCommand(key))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get all elements of set at {@link KeyCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<KeyCommand, ByteBuffer>> sMembers(Publisher<KeyCommand> commands);
+
 }

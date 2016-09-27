@@ -266,4 +266,21 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sMembers(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<KeyCommand, ByteBuffer>> sMembers(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
+						.convert(cmd.smembers(command.getKey().array()).map(ByteBuffer::wrap).toList())
+						.map(value -> new MultiValueResponse<KeyCommand, ByteBuffer>(command, value));
+			});
+		});
+	}
 }
