@@ -15,6 +15,8 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import java.nio.ByteBuffer;
+
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveZSetCommands;
@@ -94,6 +96,24 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 						: cmd.zadd(command.getKey().array(), args, values);
 
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRem(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZRemCommand, Long>> zRem(Publisher<ZRemCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.zrem(command.getKey().array(),
+								command.getValues().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});

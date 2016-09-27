@@ -129,4 +129,67 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<NumericResponse<ZAddCommand, Long>> zAdd(Publisher<ZAddCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRemCommand extends KeyCommand {
+
+		private final List<ByteBuffer> values;
+
+		private ZRemCommand(ByteBuffer key, List<ByteBuffer> values) {
+
+			super(key);
+			this.values = values;
+		}
+
+		public static ZRemCommand values(List<ByteBuffer> values) {
+			return new ZRemCommand(null, values);
+		}
+
+		public ZRemCommand from(ByteBuffer key) {
+			return new ZRemCommand(key, values);
+		}
+
+		public List<ByteBuffer> getValues() {
+			return values;
+		}
+	}
+
+	/**
+	 * Remove {@code value} from sorted set. Return number of removed elements.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRem(ByteBuffer key, ByteBuffer value) {
+		return zRem(key, Collections.singletonList(value));
+	}
+
+	/**
+	 * Remove {@code values} from sorted set. Return number of removed elements.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param values must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRem(ByteBuffer key, List<ByteBuffer> values) {
+
+		try {
+			Assert.notNull(values, "values must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRem(Mono.just(ZRemCommand.values(values).from(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Remove {@link ZRemCommand#getValues()} from sorted set. Return number of removed elements.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZRemCommand, Long>> zRem(Publisher<ZRemCommand> commands);
+
 }
