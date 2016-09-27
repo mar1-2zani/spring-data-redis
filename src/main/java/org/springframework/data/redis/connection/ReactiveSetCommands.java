@@ -301,4 +301,57 @@ public interface ReactiveSetCommands {
 	 */
 	Flux<NumericResponse<KeyCommand, Long>> sCard(Publisher<KeyCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SIsMemberCommand extends KeyCommand {
+
+		private final ByteBuffer value;
+
+		private SIsMemberCommand(ByteBuffer key, ByteBuffer value) {
+
+			super(key);
+			this.value = value;
+		}
+
+		public static SIsMemberCommand value(ByteBuffer value) {
+			return new SIsMemberCommand(null, value);
+		}
+
+		public SIsMemberCommand of(ByteBuffer set) {
+			return new SIsMemberCommand(set, value);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+	}
+
+	/**
+	 * Check if set at {@code key} contains {@code value}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> sIsMember(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sIsMember(Mono.just(SIsMemberCommand.value(value).of(key))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Check if set at {@link SIsMemberCommand#getKey()} contains {@link SIsMemberCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<SIsMemberCommand>> sIsMember(Publisher<SIsMemberCommand> commands);
+
 }

@@ -133,4 +133,21 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sIsMember(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<BooleanResponse<SIsMemberCommand>> sIsMember(Publisher<SIsMemberCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.sismember(command.getKey().array(), command.getValue().array()))
+						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
 }

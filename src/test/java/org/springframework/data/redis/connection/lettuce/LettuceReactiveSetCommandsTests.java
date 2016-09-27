@@ -111,4 +111,26 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 		assertThat(connection.setCommands().sCard(KEY_1_BBUFFER).block(), is(3L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sIsMemberShouldReturnTrueWhenValueContainedInKey() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(connection.setCommands().sIsMember(KEY_1_BBUFFER, VALUE_1_BBUFFER).block(), is(true));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sIsMemberShouldReturnFalseWhenValueNotContainedInKey() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+
+		assertThat(connection.setCommands().sIsMember(KEY_1_BBUFFER, VALUE_3_BBUFFER).block(), is(false));
+	}
+
 }
