@@ -192,4 +192,71 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<NumericResponse<ZRemCommand, Long>> zRem(Publisher<ZRemCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZIncrByCommand extends KeyCommand {
+
+		private final ByteBuffer value;
+		private final Number increment;
+
+		public ZIncrByCommand(ByteBuffer key, ByteBuffer value, Number increment) {
+
+			super(key);
+			this.value = value;
+			this.increment = increment;
+		}
+
+		public static ZIncrByCommand scoreOf(ByteBuffer member) {
+			return new ZIncrByCommand(null, member, null);
+		}
+
+		public ZIncrByCommand by(Number increment) {
+			return new ZIncrByCommand(getKey(), value, increment);
+		}
+
+		public ZIncrByCommand forKey(ByteBuffer key) {
+			return new ZIncrByCommand(key, value, increment);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+
+		public Number getIncrement() {
+			return increment;
+		}
+	}
+
+	/**
+	 * Increment the score of element with {@code value} in sorted set by {@code increment}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param increment must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Double> zIncrBy(ByteBuffer key, Number increment, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(increment, "increment must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zIncrBy(Mono.just(ZIncrByCommand.scoreOf(value).by(increment).forKey(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Increment the score of element with {@link ZIncrByCommand#getValue()} in sorted set by
+	 * {@link ZIncrByCommand#getIncrement()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZIncrByCommand, Double>> zIncrBy(Publisher<ZIncrByCommand> commands);
+
 }

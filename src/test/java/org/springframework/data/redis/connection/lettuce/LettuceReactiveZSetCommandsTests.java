@@ -48,4 +48,15 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(connection.zSetCommands().zRem(KEY_1_BBUFFER, Arrays.asList(VALUE_1_BBUFFER, VALUE_3_BBUFFER)).block(),
 				is(2L));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zIncrByShouldInreaseAndReturnScore() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+
+		assertThat(connection.zSetCommands().zIncrBy(KEY_1_BBUFFER, 3.5D, VALUE_1_BBUFFER).block(), is(4.5D));
+	}
 }

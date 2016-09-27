@@ -118,4 +118,23 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zIncrBy(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZIncrByCommand, Double>> zIncrBy(Publisher<ZIncrByCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Double> monoConverter()
+						.convert(
+								cmd.zincrby(command.getKey().array(), command.getIncrement().doubleValue(), command.getValue().array()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 }
