@@ -121,7 +121,7 @@ public interface ReactiveZSetCommands {
 		}
 
 		return zAdd(Mono.just(ZAddCommand.tuple(new DefaultTuple(value.array(), score)).to(key))).next()
-				.map(NumericResponse::getOutput);
+				.map(resp -> resp.getOutput().longValue());
 	}
 
 	/**
@@ -131,7 +131,7 @@ public interface ReactiveZSetCommands {
 	 * @param commands must not be {@literal null}.
 	 * @return
 	 */
-	Flux<NumericResponse<ZAddCommand, Long>> zAdd(Publisher<ZAddCommand> commands);
+	Flux<NumericResponse<ZAddCommand, Number>> zAdd(Publisher<ZAddCommand> commands);
 
 	/**
 	 * @author Christoph Strobl

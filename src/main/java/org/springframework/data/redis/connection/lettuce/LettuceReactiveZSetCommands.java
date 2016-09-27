@@ -59,7 +59,7 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 	 */
 	@Override
 	@SuppressWarnings("unchecked")
-	public Flux<NumericResponse<ZAddCommand, Long>> zAdd(Publisher<ZAddCommand> commands) {
+	public Flux<NumericResponse<ZAddCommand, Number>> zAdd(Publisher<ZAddCommand> commands) {
 
 		return connection.execute(cmd -> {
 
@@ -75,8 +75,11 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 							throw new IllegalArgumentException("ZADD INCR must not contain more than one tuple.");
 						}
 
-						// args = ZAddArgs.Builder.incr();
-						throw new IllegalArgumentException("Lettuce does not yet implement INCR ¯\\_(ツ)_/¯");
+						Tuple tuple = command.getTuples().iterator().next();
+
+						return LettuceReactiveRedisConnection.<Double> monoConverter()
+								.convert(cmd.zaddincr(command.getKey().array(), tuple.getScore(), tuple.getValue()))
+								.map(value -> new NumericResponse<>(command, value));
 					}
 
 					if (ObjectUtils.nullSafeEquals(command.getReturnTotalChanged(), Boolean.TRUE)) {
