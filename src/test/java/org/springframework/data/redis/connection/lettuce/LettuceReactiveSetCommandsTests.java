@@ -192,4 +192,31 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 				is(3L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sDiffShouldBeExcecutedCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		List<ByteBuffer> result = connection.setCommands().sDiff(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block();
+		assertThat(result, containsInAnyOrder(VALUE_1_BBUFFER));
+		assertThat(result, not(containsInAnyOrder(VALUE_2_BBUFFER, VALUE_3_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sDiffStoreShouldBeExcecutedCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sDiffStore(KEY_3_BBUFFER, Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block(),
+				is(1L));
+	}
+
 }

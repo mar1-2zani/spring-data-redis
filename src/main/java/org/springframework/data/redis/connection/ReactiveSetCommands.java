@@ -564,4 +564,109 @@ public interface ReactiveSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<SUnionStoreCommand, Long>> sUnionStore(Publisher<SUnionStoreCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SDiffCommand implements Command {
+
+		private final List<ByteBuffer> keys;
+
+		private SDiffCommand(List<ByteBuffer> keys) {
+			this.keys = keys;
+		}
+
+		public static SDiffCommand keys(List<ByteBuffer> keys) {
+			return new SDiffCommand(keys);
+		}
+
+		@Override
+		public ByteBuffer getKey() {
+			return null;
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Returns the diff of the members of all given sets at {@code keys}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> sDiff(List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sDiff(Mono.just(SDiffCommand.keys(keys))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Returns the diff of the members of all given sets at {@link SInterCommand#getKeys()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<SDiffCommand, ByteBuffer>> sDiff(Publisher<SDiffCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SDiffStoreCommand extends KeyCommand {
+
+		private final List<ByteBuffer> keys;
+
+		private SDiffStoreCommand(ByteBuffer key, List<ByteBuffer> keys) {
+
+			super(key);
+			this.keys = keys;
+		}
+
+		public static SDiffStoreCommand keys(List<ByteBuffer> keys) {
+			return new SDiffStoreCommand(null, keys);
+		}
+
+		public SDiffStoreCommand storeAt(ByteBuffer key) {
+			return new SDiffStoreCommand(key, keys);
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Diff all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param keys must not be {@literal null}.
+	 * @return size of set stored a {@code destinationKey}.
+	 */
+	default Mono<Long> sDiffStore(ByteBuffer destinationKey, List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sDiffStore(Mono.just(SDiffStoreCommand.keys(keys).storeAt(destinationKey))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Diff all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<SDiffStoreCommand, Long>> sDiffStore(Publisher<SDiffStoreCommand> commands);
+
 }
