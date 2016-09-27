@@ -16,11 +16,13 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveSetCommands;
 import org.springframework.util.Assert;
@@ -147,6 +149,44 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
 						.convert(cmd.sismember(command.getKey().array(), command.getValue().array()))
 						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sInter(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<SInterCommand, ByteBuffer>> sInter(Publisher<SInterCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
+						.convert(cmd.sinter(command.getKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]))
+								.map(ByteBuffer::wrap).toList())
+						.map(value -> new MultiValueResponse<SInterCommand, ByteBuffer>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sInterStore(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<SInterStoreCommand, Long>> sInterStore(Publisher<SInterStoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.sinterstore(command.getKey().array(),
+								command.getKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
 	}

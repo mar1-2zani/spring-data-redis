@@ -15,11 +15,16 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.*;
+import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsNot.*;
 import static org.hamcrest.core.IsNull.*;
 import static org.junit.Assert.*;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -131,6 +136,34 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
 
 		assertThat(connection.setCommands().sIsMember(KEY_1_BBUFFER, VALUE_3_BBUFFER).block(), is(false));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sInterShouldIntersectSetsCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		List<ByteBuffer> result = connection.setCommands().sInter(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block();
+		assertThat(result, contains(VALUE_2_BBUFFER));
+		assertThat(result, not(containsInAnyOrder(VALUE_1_BBUFFER, VALUE_3_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sInterStoreShouldReturnSizeCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sInterStore(KEY_3_BBUFFER, Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block(),
+				is(1L));
+		assertThat(nativeCommands.sismember(KEY_3, VALUE_2), is(true));
 	}
 
 }

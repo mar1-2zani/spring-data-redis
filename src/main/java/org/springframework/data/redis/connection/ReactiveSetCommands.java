@@ -22,7 +22,9 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.Command;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
 
@@ -353,5 +355,110 @@ public interface ReactiveSetCommands {
 	 * @return
 	 */
 	Flux<BooleanResponse<SIsMemberCommand>> sIsMember(Publisher<SIsMemberCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SInterCommand implements Command {
+
+		private final List<ByteBuffer> keys;
+
+		private SInterCommand(List<ByteBuffer> keys) {
+			this.keys = keys;
+		}
+
+		public static SInterCommand keys(List<ByteBuffer> keys) {
+			return new SInterCommand(keys);
+		}
+
+		@Override
+		public ByteBuffer getKey() {
+			return null;
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Returns the members intersecting all given sets at {@code keys}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> sInter(List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sInter(Mono.just(SInterCommand.keys(keys))).next()
+				.map(MultiValueResponse<SInterCommand, ByteBuffer>::getOutput);
+	}
+
+	/**
+	 * Returns the members intersecting all given sets at {@link SInterCommand#getKeys()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<SInterCommand, ByteBuffer>> sInter(Publisher<SInterCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SInterStoreCommand extends KeyCommand {
+
+		private final List<ByteBuffer> keys;
+
+		private SInterStoreCommand(ByteBuffer key, List<ByteBuffer> keys) {
+
+			super(key);
+			this.keys = keys;
+		}
+
+		public static SInterStoreCommand keys(List<ByteBuffer> keys) {
+			return new SInterStoreCommand(null, keys);
+		}
+
+		public SInterStoreCommand storeAt(ByteBuffer key) {
+			return new SInterStoreCommand(key, keys);
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Intersect all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param keys must not be {@literal null}.
+	 * @return size of set stored a {@code destinationKey}.
+	 */
+	default Mono<Long> sInterStore(ByteBuffer destinationKey, List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sInterStore(Mono.just(SInterStoreCommand.keys(keys).storeAt(destinationKey))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Intersect all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<SInterStoreCommand, Long>> sInterStore(Publisher<SInterStoreCommand> commands);
 
 }
