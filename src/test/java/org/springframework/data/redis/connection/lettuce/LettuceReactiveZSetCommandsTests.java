@@ -20,7 +20,10 @@ import static org.junit.Assert.*;
 
 import java.util.Arrays;
 
+import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Test;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.DefaultTuple;
 
 /**
  * @author Christoph Strobl
@@ -85,4 +88,63 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 
 		assertThat(connection.zSetCommands().zRevRank(KEY_1_BBUFFER, VALUE_3_BBUFFER).block(), is(0L));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRangeShouldReturnValuesCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRange(KEY_1_BBUFFER, new Range<Long>(1L, 2L)).block(),
+				IsIterableContainingInOrder.contains(VALUE_2_BBUFFER, VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRangeWithScoreShouldReturnTuplesCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRangeWithScores(KEY_1_BBUFFER, new Range<Long>(1L, 2L)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_2_BBUFFER.array(), 2D),
+						new DefaultTuple(VALUE_3_BBUFFER.array(), 3D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRevRangeShouldReturnValuesCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRevRange(KEY_1_BBUFFER, new Range<Long>(1L, 2L)).block(),
+				IsIterableContainingInOrder.contains(VALUE_2_BBUFFER, VALUE_1_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRevRangeWithScoreShouldReturnTuplesCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRevRangeWithScores(KEY_1_BBUFFER, new Range<Long>(1L, 2L)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_2_BBUFFER.array(), 2D),
+						new DefaultTuple(VALUE_1_BBUFFER.array(), 1D)));
+	}
+
 }

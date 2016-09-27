@@ -18,10 +18,13 @@ package org.springframework.data.redis.connection;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.domain.Range;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.util.Assert;
@@ -343,5 +346,136 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZRankCommand, Long>> zRank(Publisher<ZRankCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRangeCommand extends KeyCommand {
+
+		private final Range<Long> range;
+		private final Boolean withScores;
+		private final Direction direction;
+
+		public ZRangeCommand(ByteBuffer key, Range<Long> range, Direction direction, Boolean withScores) {
+			super(key);
+			this.range = range;
+			this.withScores = withScores;
+			this.direction = direction;
+		}
+
+		public static ZRangeCommand reverseValuesWithin(Range<Long> range) {
+			return new ZRangeCommand(null, range, Direction.DESC, null);
+		}
+
+		public static ZRangeCommand valuesWithin(Range<Long> range) {
+			return new ZRangeCommand(null, range, Direction.ASC, null);
+		}
+
+		public ZRangeCommand withScores() {
+			return new ZRangeCommand(getKey(), range, direction, Boolean.TRUE);
+		}
+
+		public ZRangeCommand from(ByteBuffer key) {
+			return new ZRangeCommand(key, range, direction, withScores);
+		}
+
+		public Range<Long> getRange() {
+			return range;
+		}
+
+		public Boolean getWithScores() {
+			return withScores;
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+	}
+
+	/**
+	 * Get elements in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRange(ByteBuffer key, Range<Long> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRange(Mono.just(ZRangeCommand.valuesWithin(range).from(key))).next().map(resp -> {
+			return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+		});
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRangeWithScores(ByteBuffer key, Range<Long> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRange(Mono.just(ZRangeCommand.valuesWithin(range).withScores().from(key))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get elements in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRevRange(ByteBuffer key, Range<Long> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRange(Mono.just(ZRangeCommand.reverseValuesWithin(range).from(key))).next().map(resp -> {
+			return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+		});
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRevRangeWithScores(ByteBuffer key, Range<Long> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRange(Mono.just(ZRangeCommand.reverseValuesWithin(range).withScores().from(key))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<ZRangeCommand, Tuple>> zRange(Publisher<ZRangeCommand> commands);
 
 }

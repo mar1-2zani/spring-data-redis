@@ -16,11 +16,15 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.redis.connection.DefaultTuple;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveZSetCommands;
+import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -155,6 +159,58 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
 						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRange(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<ZRangeCommand, Tuple>> zRange(Publisher<ZRangeCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<Tuple>> result = null;
+
+				if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
+					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
+
+						result = cmd
+								.zrangeWithScores(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+
+					} else {
+
+						result = cmd
+								.zrange(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+					}
+				}
+
+				else {
+					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
+						result = cmd
+								.zrevrangeWithScores(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+
+					} else {
+
+						result = cmd
+								.zrevrange(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+					}
+				}
+
+				return LettuceReactiveRedisConnection.<List<Tuple>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
 			});
 		});
 	}
