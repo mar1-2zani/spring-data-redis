@@ -18,6 +18,7 @@ package org.springframework.data.redis.connection.lettuce;
 import java.nio.ByteBuffer;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveZSetCommands;
 import org.springframework.util.Assert;
@@ -132,6 +133,27 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 				return LettuceReactiveRedisConnection.<Double> monoConverter()
 						.convert(
 								cmd.zincrby(command.getKey().array(), command.getIncrement().doubleValue(), command.getValue().array()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRank(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZRankCommand, Long>> zRank(Publisher<ZRankCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<Long> result = ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)
+						? cmd.zrank(command.getKey().array(), command.getValue().array())
+						: cmd.zrevrank(command.getKey().array(), command.getValue().array());
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});

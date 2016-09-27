@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
@@ -215,7 +216,7 @@ public interface ReactiveZSetCommands {
 			return new ZIncrByCommand(getKey(), value, increment);
 		}
 
-		public ZIncrByCommand forKey(ByteBuffer key) {
+		public ZIncrByCommand storedWithin(ByteBuffer key) {
 			return new ZIncrByCommand(key, value, increment);
 		}
 
@@ -246,7 +247,7 @@ public interface ReactiveZSetCommands {
 			return Mono.error(e);
 		}
 
-		return zIncrBy(Mono.just(ZIncrByCommand.scoreOf(value).by(increment).forKey(key))).next()
+		return zIncrBy(Mono.just(ZIncrByCommand.scoreOf(value).by(increment).storedWithin(key))).next()
 				.map(NumericResponse::getOutput);
 	}
 
@@ -258,5 +259,89 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZIncrByCommand, Double>> zIncrBy(Publisher<ZIncrByCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRankCommand extends KeyCommand {
+
+		private final ByteBuffer value;
+		private final Direction direction;
+
+		private ZRankCommand(ByteBuffer key, ByteBuffer value, Direction direction) {
+
+			super(key);
+			this.value = value;
+			this.direction = direction;
+		}
+
+		public static ZRankCommand indexOf(ByteBuffer member) {
+			return new ZRankCommand(null, member, Direction.ASC);
+		}
+
+		public static ZRankCommand reverseIndexOf(ByteBuffer member) {
+			return new ZRankCommand(null, member, Direction.DESC);
+		}
+
+		public ZRankCommand storedWithin(ByteBuffer key) {
+			return new ZRankCommand(key, value, direction);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+	}
+
+	/**
+	 * Determine the index of element with {@code value} in a sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRank(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRank(Mono.just(ZRankCommand.indexOf(value).storedWithin(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Determine the index of element with {@code value} in a sorted set when scored high to low.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRevRank(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRank(Mono.just(ZRankCommand.reverseIndexOf(value).storedWithin(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Determine the index of element with {@code value} in a sorted set when scored by
+	 * {@link ZRankCommand#getDirection()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZRankCommand, Long>> zRank(Publisher<ZRankCommand> commands);
 
 }
