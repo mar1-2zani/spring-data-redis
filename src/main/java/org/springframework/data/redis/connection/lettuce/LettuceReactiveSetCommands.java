@@ -18,6 +18,7 @@ package org.springframework.data.redis.connection.lettuce;
 import java.nio.ByteBuffer;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -99,4 +100,21 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sMove(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<BooleanResponse<SMoveCommand>> sMove(Publisher<SMoveCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.smove(command.getKey().array(), command.getDestination().array(), command.getValue().array()))
+						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
 }

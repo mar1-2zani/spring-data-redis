@@ -87,4 +87,17 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 		assertThat(connection.setCommands().sPop(KEY_1_BBUFFER).block(), is(nullValue()));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sMoveShouldMoveValueCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+		nativeCommands.sadd(KEY_2, VALUE_1);
+
+		assertThat(connection.setCommands().sMove(KEY_1_BBUFFER, KEY_2_BBUFFER, VALUE_3_BBUFFER).block(), is(true));
+		assertThat(nativeCommands.sismember(KEY_2, VALUE_3), is(true));
+	}
+
 }

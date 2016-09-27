@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.ByteBufferResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -208,5 +209,71 @@ public interface ReactiveSetCommands {
 	 * @return
 	 */
 	Flux<ByteBufferResponse<KeyCommand>> sPop(Publisher<KeyCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SMoveCommand extends KeyCommand {
+
+		private final ByteBuffer destination;
+		private final ByteBuffer value;
+
+		private SMoveCommand(ByteBuffer key, ByteBuffer destination, ByteBuffer value) {
+
+			super(key);
+			this.destination = destination;
+			this.value = value;
+		}
+
+		public static SMoveCommand value(ByteBuffer value) {
+			return new SMoveCommand(null, null, value);
+		}
+
+		public SMoveCommand from(ByteBuffer source) {
+			return new SMoveCommand(source, destination, value);
+		}
+
+		public SMoveCommand to(ByteBuffer destination) {
+			return new SMoveCommand(getKey(), destination, value);
+		}
+
+		public ByteBuffer getDestination() {
+			return destination;
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+	}
+
+	/**
+	 * Move {@code value} from {@code sourceKey} to {@code destinationKey}
+	 *
+	 * @param sourceKey must not be {@literal null}.
+	 * @param destinationKey must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> sMove(ByteBuffer sourceKey, ByteBuffer destinationKey, ByteBuffer value) {
+
+		try {
+			Assert.notNull(sourceKey, "sourceKey must not be null");
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sMove(Mono.just(SMoveCommand.value(value).from(sourceKey).to(destinationKey))).next()
+				.map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Move {@link SMoveCommand#getValue()} from {@link SMoveCommand#getKey()} to {@link SMoveCommand#getDestination()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<BooleanResponse<SMoveCommand>> sMove(Publisher<SMoveCommand> commands);
 
 }
