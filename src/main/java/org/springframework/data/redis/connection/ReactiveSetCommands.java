@@ -461,4 +461,107 @@ public interface ReactiveSetCommands {
 	 */
 	Flux<NumericResponse<SInterStoreCommand, Long>> sInterStore(Publisher<SInterStoreCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SUnionCommand implements Command {
+
+		private final List<ByteBuffer> keys;
+
+		private SUnionCommand(List<ByteBuffer> keys) {
+			this.keys = keys;
+		}
+
+		public static SUnionCommand keys(List<ByteBuffer> keys) {
+			return new SUnionCommand(keys);
+		}
+
+		@Override
+		public ByteBuffer getKey() {
+			return null;
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Returns the members intersecting all given sets at {@code keys}.
+	 *
+	 * @param keys must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> sUnion(List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sUnion(Mono.just(SUnionCommand.keys(keys))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Returns the members intersecting all given sets at {@link SInterCommand#getKeys()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<SUnionCommand, ByteBuffer>> sUnion(Publisher<SUnionCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SUnionStoreCommand extends KeyCommand {
+
+		private final List<ByteBuffer> keys;
+
+		private SUnionStoreCommand(ByteBuffer key, List<ByteBuffer> keys) {
+
+			super(key);
+			this.keys = keys;
+		}
+
+		public static SUnionStoreCommand keys(List<ByteBuffer> keys) {
+			return new SUnionStoreCommand(null, keys);
+		}
+
+		public SUnionStoreCommand storeAt(ByteBuffer key) {
+			return new SUnionStoreCommand(key, keys);
+		}
+
+		public List<ByteBuffer> getKeys() {
+			return keys;
+		}
+	}
+
+	/**
+	 * Union all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param keys must not be {@literal null}.
+	 * @return size of set stored a {@code destinationKey}.
+	 */
+	default Mono<Long> sUnionStore(ByteBuffer destinationKey, List<ByteBuffer> keys) {
+
+		try {
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(keys, "keys must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sUnionStore(Mono.just(SUnionStoreCommand.keys(keys).storeAt(destinationKey))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Union all given sets at {@code keys} and store result in {@code destinationKey}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<SUnionStoreCommand, Long>> sUnionStore(Publisher<SUnionStoreCommand> commands);
 }

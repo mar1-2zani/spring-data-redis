@@ -190,4 +190,42 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sInter(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<SUnionCommand, ByteBuffer>> sUnion(Publisher<SUnionCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
+						.convert(cmd.sunion(command.getKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]))
+								.map(ByteBuffer::wrap).toList())
+						.map(value -> new MultiValueResponse<SUnionCommand, ByteBuffer>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sInterStore(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<SUnionStoreCommand, Long>> sUnionStore(Publisher<SUnionStoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.sunionstore(command.getKey().array(),
+								command.getKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
 }

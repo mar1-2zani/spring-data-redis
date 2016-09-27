@@ -166,4 +166,30 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 		assertThat(nativeCommands.sismember(KEY_3, VALUE_2), is(true));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sUnionShouldCombineSetsCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		List<ByteBuffer> result = connection.setCommands().sUnion(Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block();
+		assertThat(result, containsInAnyOrder(VALUE_1_BBUFFER, VALUE_3_BBUFFER, VALUE_2_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sUnionStoreShouldReturnSizeCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2);
+		nativeCommands.sadd(KEY_2, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sUnionStore(KEY_3_BBUFFER, Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER)).block(),
+				is(3L));
+	}
+
 }
