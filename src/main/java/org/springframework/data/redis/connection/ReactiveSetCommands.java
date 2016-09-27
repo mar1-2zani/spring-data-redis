@@ -694,4 +694,67 @@ public interface ReactiveSetCommands {
 	 */
 	Flux<MultiValueResponse<KeyCommand, ByteBuffer>> sMembers(Publisher<KeyCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class SRandMembersCommand extends KeyCommand {
+
+		private final Long count;
+
+		private SRandMembersCommand(ByteBuffer key, Long count) {
+
+			super(key);
+			this.count = count;
+		}
+
+		public static SRandMembersCommand valueCount(Long nrValuesToRetrieve) {
+			return new SRandMembersCommand(null, nrValuesToRetrieve);
+		}
+
+		public SRandMembersCommand from(ByteBuffer key) {
+			return new SRandMembersCommand(key, count);
+		}
+
+		public Long getCount() {
+			return count;
+		}
+	}
+
+	/**
+	 * Get random element from set at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> sRandMember(ByteBuffer key) {
+		return sRandMember(key, 1L).map(vals -> vals.isEmpty() ? null : vals.iterator().next());
+	}
+
+	/**
+	 * Get {@code count} random elements from set at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param count must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> sRandMember(ByteBuffer key, Long count) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(count, "count must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sRandMember(Mono.just(SRandMembersCommand.valueCount(count).from(key))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get {@link SRandMembersCommand#getCount()} random elements from set at {@link SRandMembersCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<SRandMembersCommand, ByteBuffer>> sRandMember(Publisher<SRandMembersCommand> commands);
 }

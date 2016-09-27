@@ -16,6 +16,7 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
@@ -26,8 +27,10 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiVa
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveSetCommands;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 
 import reactor.core.publisher.Flux;
+import rx.Observable;
 
 /**
  * @author Christoph Strobl
@@ -280,6 +283,32 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
 						.convert(cmd.smembers(command.getKey().array()).map(ByteBuffer::wrap).toList())
 						.map(value -> new MultiValueResponse<KeyCommand, ByteBuffer>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sRandMembers(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<SRandMembersCommand, ByteBuffer>> sRandMember(
+			Publisher<SRandMembersCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<ByteBuffer>> result = null;
+				if (ObjectUtils.nullSafeEquals(command.getCount(), 1L)) {
+					result = cmd.srandmember(command.getKey().array()).map(ByteBuffer::wrap).map(Collections::singletonList);
+				} else {
+
+					result = cmd.srandmember(command.getKey().array(), command.getCount()).map(ByteBuffer::wrap).toList();
+				}
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
 			});
 		});
 	}

@@ -17,7 +17,9 @@ package org.springframework.data.redis.connection.lettuce;
 
 import static org.hamcrest.collection.IsIterableContainingInAnyOrder.*;
 import static org.hamcrest.collection.IsIterableContainingInOrder.*;
+import static org.hamcrest.core.AnyOf.*;
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsEqual.*;
 import static org.hamcrest.core.IsNot.*;
 import static org.hamcrest.core.IsNull.*;
 import static org.junit.Assert.*;
@@ -229,6 +231,29 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 
 		assertThat(connection.setCommands().sMembers(KEY_1_BBUFFER).block(),
 				containsInAnyOrder(VALUE_1_BBUFFER, VALUE_2_BBUFFER, VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sRandMemberReturnsRandomMember() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sRandMember(KEY_1_BBUFFER).block(),
+				anyOf(equalTo(VALUE_1_BBUFFER), equalTo(VALUE_2_BBUFFER), equalTo(VALUE_3_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sRandMemberReturnsRandomMembers() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sRandMember(KEY_1_BBUFFER, 2L).block().size(), is(2));
 	}
 
 }
