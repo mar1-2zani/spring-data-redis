@@ -27,6 +27,7 @@ import org.springframework.data.redis.connection.ReactiveNumberCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection;
 import org.springframework.data.redis.connection.ReactiveSetCommands;
 import org.springframework.data.redis.connection.ReactiveStringCommands;
+import org.springframework.data.redis.connection.ReactiveZSetCommands;
 import org.springframework.data.repository.util.QueryExecutionConverters.RxJava1ObservableToMonoConverter;
 import org.springframework.util.Assert;
 
@@ -104,6 +105,11 @@ public class LettuceReactiveRedisConnection implements ReactiveRedisConnection {
 	@Override
 	public ReactiveSetCommands setCommands() {
 		return new LettuceReactiveSetCommands(this);
+	}
+
+	@Override
+	public ReactiveZSetCommands zSetCommands() {
+		return new LettuceReactiveZSetCommands(this);
 	}
 
 	protected RedisClusterReactiveCommands<byte[], byte[]> getCommands() {
