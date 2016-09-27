@@ -276,4 +276,29 @@ public interface ReactiveSetCommands {
 	 */
 	Flux<BooleanResponse<SMoveCommand>> sMove(Publisher<SMoveCommand> commands);
 
+	/**
+	 * Get size of set at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> sCard(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return sCard(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get size of set at {@link KeyCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<KeyCommand, Long>> sCard(Publisher<KeyCommand> commands);
+
 }

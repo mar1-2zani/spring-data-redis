@@ -117,4 +117,20 @@ public class LettuceReactiveSetCommands implements ReactiveSetCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveSetCommands#sCard(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<KeyCommand, Long>> sCard(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.scard(command.getKey().array()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
 }

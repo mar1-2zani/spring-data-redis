@@ -100,4 +100,15 @@ public class LettuceReactiveSetCommandsTests extends LettuceReactiveCommandsTest
 		assertThat(nativeCommands.sismember(KEY_2, VALUE_3), is(true));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void sCardShouldCountValuesCorrectly() {
+
+		nativeCommands.sadd(KEY_1, VALUE_1, VALUE_2, VALUE_3);
+
+		assertThat(connection.setCommands().sCard(KEY_1_BBUFFER).block(), is(3L));
+	}
+
 }
