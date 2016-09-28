@@ -259,4 +259,15 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(connection.zSetCommands().zCard(KEY_1_BBUFFER).block(), is(3L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zScoreShouldReturnScoreCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+
+		assertThat(connection.zSetCommands().zScore(KEY_1_BBUFFER, VALUE_2_BBUFFER).block(), is(2D));
+	}
+
 }

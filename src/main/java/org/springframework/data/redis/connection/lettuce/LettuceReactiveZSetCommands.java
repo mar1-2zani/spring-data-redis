@@ -319,4 +319,21 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zScore(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZScoreCommand, Double>> zScore(Publisher<ZScoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Double> monoConverter()
+						.convert(cmd.zscore(command.getKey().array(), command.getValue().array()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 }

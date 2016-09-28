@@ -692,4 +692,58 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<NumericResponse<KeyCommand, Long>> zCard(Publisher<KeyCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZScoreCommand extends KeyCommand {
+
+		private final ByteBuffer value;
+
+		private ZScoreCommand(ByteBuffer key, ByteBuffer value) {
+
+			super(key);
+			this.value = value;
+		}
+
+		public static ZScoreCommand scoreOf(ByteBuffer member) {
+			return new ZScoreCommand(null, member);
+		}
+
+		public ZScoreCommand forKey(ByteBuffer key) {
+			return new ZScoreCommand(key, value);
+		}
+
+		public ByteBuffer getValue() {
+			return value;
+		}
+
+	}
+
+	/**
+	 * Get the score of element with {@code value} from sorted set with key {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Double> zScore(ByteBuffer key, ByteBuffer value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zScore(Mono.just(ZScoreCommand.scoreOf(value).forKey(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get the score of element with {@link ZScoreCommand#getValue()} from sorted set with key
+	 * {@link ZScoreCommand#getKey()}
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZScoreCommand, Double>> zScore(Publisher<ZScoreCommand> commands);
+
 }
