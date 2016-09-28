@@ -478,4 +478,135 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<MultiValueResponse<ZRangeCommand, Tuple>> zRange(Publisher<ZRangeCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRangeByScoreCommand extends KeyCommand {
+
+		private final Range<Double> range;
+		private final Boolean withScores;
+		private final Direction direction;
+
+		public ZRangeByScoreCommand(ByteBuffer key, Range<Double> range, Direction direction, Boolean withScores) {
+			super(key);
+			this.range = range;
+			this.withScores = withScores;
+			this.direction = direction;
+		}
+
+		public static ZRangeByScoreCommand reverseScoresWithin(Range<Double> range) {
+			return new ZRangeByScoreCommand(null, range, Direction.DESC, null);
+		}
+
+		public static ZRangeByScoreCommand scoresWithin(Range<Double> range) {
+			return new ZRangeByScoreCommand(null, range, Direction.ASC, null);
+		}
+
+		public ZRangeByScoreCommand withScores() {
+			return new ZRangeByScoreCommand(getKey(), range, direction, Boolean.TRUE);
+		}
+
+		public ZRangeByScoreCommand from(ByteBuffer key) {
+			return new ZRangeByScoreCommand(key, range, direction, withScores);
+		}
+
+		public Range<Double> getRange() {
+			return range;
+		}
+
+		public Boolean getWithScores() {
+			return withScores;
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+	}
+
+	/**
+	 * Get elements in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRangeByScore(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.scoresWithin(range).from(key))).next().map(resp -> {
+			return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+		});
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRangeByScoreWithScores(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.scoresWithin(range).withScores().from(key))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get elements in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRevRangeByScore(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.reverseScoresWithin(range).from(key))).next().map(resp -> {
+			return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+		});
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRevRangeByScoreWithScores(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.reverseScoresWithin(range).withScores().from(key))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<ZRangeByScoreCommand, Tuple>> zRangeByScore(Publisher<ZRangeByScoreCommand> commands);
+
 }

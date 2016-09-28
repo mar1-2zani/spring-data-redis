@@ -218,4 +218,56 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRange(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<ZRangeByScoreCommand, Tuple>> zRangeByScore(Publisher<ZRangeByScoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<Tuple>> result = null;
+
+				if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
+					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
+
+						result = cmd
+								.zrangebyscoreWithScores(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+
+					} else {
+
+						result = cmd
+								.zrangebyscore(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+					}
+				}
+
+				else {
+					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
+						result = cmd
+								.zrevrangebyscoreWithScores(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+
+					} else {
+
+						result = cmd
+								.zrevrangebyscore(command.getKey().array(), command.getRange().getLowerBound(),
+										command.getRange().getUpperBound())
+								.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+					}
+				}
+
+				return LettuceReactiveRedisConnection.<List<Tuple>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
+			});
+		});
+	}
+
 }
