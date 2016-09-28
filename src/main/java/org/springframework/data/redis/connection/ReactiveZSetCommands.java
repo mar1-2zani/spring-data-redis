@@ -667,4 +667,29 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<NumericResponse<ZCountCommand, Long>> zCount(Publisher<ZCountCommand> commands);
 
+	/**
+	 * Get the size of sorted set with {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zCard(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zCard(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get the size of sorted set with {@link KeyCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<KeyCommand, Long>> zCard(Publisher<KeyCommand> commands);
+
 }

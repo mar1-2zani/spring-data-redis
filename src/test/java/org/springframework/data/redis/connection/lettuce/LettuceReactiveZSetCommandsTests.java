@@ -246,4 +246,17 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 				is(2L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldReturnSizeCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCard(KEY_1_BBUFFER).block(), is(3L));
+	}
+
 }

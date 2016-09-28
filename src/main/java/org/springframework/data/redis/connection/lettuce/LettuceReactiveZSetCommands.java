@@ -21,6 +21,7 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.DefaultTuple;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveZSetCommands;
@@ -297,6 +298,22 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 				}
 
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zCard(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<KeyCommand, Long>> zCard(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.zcard(command.getKey().array()))
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
