@@ -21,12 +21,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.domain.Range;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
+import org.springframework.data.util.DirectFieldAccessFallbackBeanWrapper;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -37,6 +39,54 @@ import reactor.core.publisher.Mono;
  * @since 2.0
  */
 public interface ReactiveZSetCommands {
+
+	public class AgrumentConverters {
+
+		public static Object lowerBoundArgOf(Range<?> range) {
+			return rangeToLowerBoundArgumentConverter(false).convert(range);
+		}
+
+		public static Object upperBoundArgOf(Range<?> range) {
+			return rangeToLowerBoundArgumentConverter(true).convert(range);
+		}
+
+		public static Converter<Range<?>, Object> rangeToLowerBoundArgumentConverter(Boolean upper) {
+
+			return (source) -> {
+
+				// TODO: fix range exclusion pattern when DATACMNS-920 is resolved
+				DirectFieldAccessFallbackBeanWrapper bw = new DirectFieldAccessFallbackBeanWrapper(source);
+
+				Boolean inclusive = upper ? Boolean.valueOf(bw.getPropertyValue("upperInclusive").toString())
+						: Boolean.valueOf(bw.getPropertyValue("lowerInclusive").toString());
+				Object value = upper ? source.getUpperBound() : source.getLowerBound();
+
+				if (value instanceof Double) {
+
+					Object converted = doubleToRangeConverter().convert((Double) value);
+					if (!(converted instanceof String) && !inclusive) {
+						return "(" + converted.toString();
+					}
+					return converted;
+				}
+				return inclusive ? value : "(" + value;
+			};
+		}
+
+		public static Converter<Double, Object> doubleToRangeConverter() {
+
+			return (source) -> {
+				if (source.equals(Double.NEGATIVE_INFINITY)) {
+					return "-inf";
+				}
+				if (source.equals(Double.POSITIVE_INFINITY)) {
+					return "+inf";
+				}
+				return source;
+			};
+		}
+
+	}
 
 	/**
 	 * @author Christoph Strobl
@@ -799,5 +849,60 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZRemRangeByRankCommand, Long>> zRemRangeByRank(Publisher<ZRemRangeByRankCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRemRangeByScoreCommand extends KeyCommand {
+
+		private final Range<Double> range;
+
+		private ZRemRangeByScoreCommand(ByteBuffer key, Range<Double> range) {
+
+			super(key);
+			this.range = range;
+		}
+
+		public static ZRemRangeByScoreCommand scoresWithin(Range<Double> range) {
+			return new ZRemRangeByScoreCommand(null, range);
+		}
+
+		public ZRemRangeByScoreCommand from(ByteBuffer key) {
+			return new ZRemRangeByScoreCommand(key, range);
+		}
+
+		public Range<Double> getRange() {
+			return range;
+		}
+
+	}
+
+	/**
+	 * Remove elements in {@link Range} from sorted set with {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRemRangeByScore(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRemRangeByScore(Mono.just(ZRemRangeByScoreCommand.scoresWithin(range).from(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Remove elements in {@link Range} from sorted set with {@link ZRemRangeByRankCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZRemRangeByScoreCommand, Long>> zRemRangeByScore(Publisher<ZRemRangeByScoreCommand> commands);
 
 }

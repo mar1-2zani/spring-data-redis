@@ -283,4 +283,75 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(connection.zSetCommands().zRemRangeByRank(KEY_1_BBUFFER, new Range<>(1L, 2L)).block(), is(2L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRemRangeByScoreShouldRemoveValuesCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRemRangeByScore(KEY_1_BBUFFER, new Range<>(1D, 2D)).block(), is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRemRangeByScoreShouldRemoveValuesCorrectlyWithNegativeInfinity() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRemRangeByScore(KEY_1_BBUFFER, new Range<>(Double.NEGATIVE_INFINITY, 2D)).block(),
+				is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRemRangeByScoreShouldRemoveValuesCorrectlyWithPositiveInfinity() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRemRangeByScore(KEY_1_BBUFFER, new Range<>(2D, Double.POSITIVE_INFINITY)).block(),
+				is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRemRangeByScoreShouldRemoveValuesCorrectlyWithExcludingMinRange() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRemRangeByScore(KEY_1_BBUFFER, new Range<>(2D, 3D, false, true)).block(),
+				is(1L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRemRangeByScoreShouldRemoveValuesCorrectlyWithExcludingMaxRange() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRemRangeByScore(KEY_1_BBUFFER, new Range<>(2D, 3D, true, false)).block(),
+				is(1L));
+	}
+
 }
