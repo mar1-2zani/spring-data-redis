@@ -730,6 +730,7 @@ public interface ReactiveZSetCommands {
 
 		try {
 			Assert.notNull(key, "key must not be null");
+			Assert.notNull(value, "value must not be null");
 		} catch (IllegalArgumentException e) {
 			return Mono.error(e);
 		}
@@ -745,5 +746,58 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZScoreCommand, Double>> zScore(Publisher<ZScoreCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRemRangeByRankCommand extends KeyCommand {
+
+		private final Range<Long> range;
+
+		private ZRemRangeByRankCommand(ByteBuffer key, Range<Long> range) {
+			super(key);
+			this.range = range;
+		}
+
+		public static ZRemRangeByRankCommand valuesWithin(Range<Long> range) {
+			return new ZRemRangeByRankCommand(null, range);
+		}
+
+		public ZRemRangeByRankCommand from(ByteBuffer key) {
+			return new ZRemRangeByRankCommand(key, range);
+		}
+
+		public Range<Long> getRange() {
+			return range;
+		}
+	}
+
+	/**
+	 * Remove elements in {@link Range} from sorted set with {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zRemRangeByRank(ByteBuffer key, Range<Long> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRemRangeByRank(Mono.just(ZRemRangeByRankCommand.valuesWithin(range).from(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Remove elements in {@link Range} from sorted set with {@link ZRemRangeByRankCommand#getKey()}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZRemRangeByRankCommand, Long>> zRemRangeByRank(Publisher<ZRemRangeByRankCommand> commands);
 
 }

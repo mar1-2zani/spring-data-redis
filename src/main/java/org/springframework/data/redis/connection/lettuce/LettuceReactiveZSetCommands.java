@@ -336,4 +336,23 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRemRangeByRank(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZRemRangeByRankCommand, Long>> zRemRangeByRank(
+			Publisher<ZRemRangeByRankCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection
+						.<Long> monoConverter().convert(cmd.zremrangebyrank(command.getKey().array(),
+								command.getRange().getLowerBound(), command.getRange().getUpperBound()))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 }
