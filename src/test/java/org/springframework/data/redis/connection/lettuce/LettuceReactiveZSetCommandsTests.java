@@ -165,6 +165,34 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 	 * @see DATAREDIS-525
 	 */
 	@Test
+	public void zRangeByScoreShouldReturnValuesCorrectlyWithMinExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRangeByScore(KEY_1_BBUFFER, new Range<>(2D, 3D, false, true)).block(),
+				IsIterableContainingInOrder.contains(VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRangeByScoreShouldReturnValuesCorrectlyWithMaxExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRangeByScore(KEY_1_BBUFFER, new Range<>(2D, 3D, true, false)).block(),
+				IsIterableContainingInOrder.contains(VALUE_2_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
 	public void zRangeByScoreWithScoreShouldReturnTuplesCorrectly() {
 
 		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
@@ -180,6 +208,36 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 	 * @see DATAREDIS-525
 	 */
 	@Test
+	public void zRangeByScoreWithScoreShouldReturnTuplesCorrectlyWithMinExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRangeByScoreWithScores(KEY_1_BBUFFER, new Range<>(2D, 3D, false, true)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_3_BBUFFER.array(), 3D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRangeByScoreWithScoreShouldReturnTuplesCorrectlyWithMaxExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRangeByScoreWithScores(KEY_1_BBUFFER, new Range<>(2D, 3D, true, false)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_2_BBUFFER.array(), 2D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
 	public void zRevRangeByScoreShouldReturnValuesCorrectly() {
 
 		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
@@ -188,6 +246,34 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 
 		assertThat(connection.zSetCommands().zRevRangeByScore(KEY_1_BBUFFER, new Range<>(3D, 2D)).block(),
 				IsIterableContainingInOrder.contains(VALUE_3_BBUFFER, VALUE_2_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRevRangeByScoreShouldReturnValuesCorrectlyWithMinExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRevRangeByScore(KEY_1_BBUFFER, new Range<>(3D, 2D, true, false)).block(),
+				IsIterableContainingInOrder.contains(VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRevRangeByScoreShouldReturnValuesCorrectlyWithMaxExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zRevRangeByScore(KEY_1_BBUFFER, new Range<>(3D, 2D, false, true)).block(),
+				IsIterableContainingInOrder.contains(VALUE_2_BBUFFER));
 	}
 
 	/**
@@ -209,6 +295,36 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 	 * @see DATAREDIS-525
 	 */
 	@Test
+	public void zRevRangeByScoreWithScoreShouldReturnTuplesCorrectlyWithMinExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRevRangeByScoreWithScores(KEY_1_BBUFFER, new Range<>(3D, 2D, true, false)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_3_BBUFFER.array(), 3D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zRevRangeByScoreWithScoreShouldReturnTuplesCorrectlyWithMaxExclusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands().zRevRangeByScoreWithScores(KEY_1_BBUFFER, new Range<>(3D, 2D, false, true)).block(),
+				IsIterableContainingInOrder.contains(new DefaultTuple(VALUE_2_BBUFFER.array(), 2D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
 	public void zCountShouldCountValuesInRange() {
 
 		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
@@ -216,6 +332,32 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
 
 		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(2D, 3D)).block(), is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldCountValuesInRangeWithMinExlusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(2D, 3D, false, true)).block(), is(1L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldCountValuesInRangeWithMaxExlusion() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(2D, 3D, true, false)).block(), is(1L));
 	}
 
 	/**
@@ -250,7 +392,7 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 	 * @see DATAREDIS-525
 	 */
 	@Test
-	public void zCountShouldReturnSizeCorrectly() {
+	public void zCardShouldReturnSizeCorrectly() {
 
 		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
 		nativeCommands.zadd(KEY_1, 2D, VALUE_2);

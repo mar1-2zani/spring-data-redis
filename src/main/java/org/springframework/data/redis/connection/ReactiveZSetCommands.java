@@ -27,6 +27,7 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.RedisZSetCommands.Limit;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.data.util.DirectFieldAccessFallbackBeanWrapper;
 import org.springframework.util.Assert;
@@ -536,28 +537,36 @@ public interface ReactiveZSetCommands {
 		private final Range<Double> range;
 		private final Boolean withScores;
 		private final Direction direction;
+		private final Limit limit;
 
-		public ZRangeByScoreCommand(ByteBuffer key, Range<Double> range, Direction direction, Boolean withScores) {
+		private ZRangeByScoreCommand(ByteBuffer key, Range<Double> range, Direction direction, Boolean withScores,
+				Limit limit) {
+
 			super(key);
 			this.range = range;
 			this.withScores = withScores;
 			this.direction = direction;
+			this.limit = limit;
 		}
 
 		public static ZRangeByScoreCommand reverseScoresWithin(Range<Double> range) {
-			return new ZRangeByScoreCommand(null, range, Direction.DESC, null);
+			return new ZRangeByScoreCommand(null, range, Direction.DESC, null, null);
 		}
 
 		public static ZRangeByScoreCommand scoresWithin(Range<Double> range) {
-			return new ZRangeByScoreCommand(null, range, Direction.ASC, null);
+			return new ZRangeByScoreCommand(null, range, Direction.ASC, null, null);
 		}
 
 		public ZRangeByScoreCommand withScores() {
-			return new ZRangeByScoreCommand(getKey(), range, direction, Boolean.TRUE);
+			return new ZRangeByScoreCommand(getKey(), range, direction, Boolean.TRUE, limit);
 		}
 
 		public ZRangeByScoreCommand from(ByteBuffer key) {
-			return new ZRangeByScoreCommand(key, range, direction, withScores);
+			return new ZRangeByScoreCommand(key, range, direction, withScores, limit);
+		}
+
+		public ZRangeByScoreCommand limitTo(Limit limit) {
+			return new ZRangeByScoreCommand(getKey(), range, direction, withScores, limit);
 		}
 
 		public Range<Double> getRange() {
@@ -570,6 +579,10 @@ public interface ReactiveZSetCommands {
 
 		public Direction getDirection() {
 			return direction;
+		}
+
+		public Limit getLimit() {
+			return limit;
 		}
 	}
 
@@ -594,6 +607,29 @@ public interface ReactiveZSetCommands {
 	}
 
 	/**
+	 * Get elements in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRangeByScore(ByteBuffer key, Range<Double> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.scoresWithin(range).from(key).limitTo(limit))).next()
+				.map(resp -> {
+					return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+				});
+	}
+
+	/**
 	 * Get set of {@link Tuple}s in {@code range} from sorted set.
 	 *
 	 * @param key must not be {@literal null}.
@@ -604,12 +640,34 @@ public interface ReactiveZSetCommands {
 
 		try {
 			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
 		} catch (IllegalArgumentException e) {
 			return Mono.error(e);
 		}
 
 		return zRangeByScore(Mono.just(ZRangeByScoreCommand.scoresWithin(range).withScores().from(key))).next()
 				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRangeByScoreWithScores(ByteBuffer key, Range<Double> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.scoresWithin(range).withScores().from(key).limitTo(limit)))
+				.next().map(MultiValueResponse::getOutput);
 	}
 
 	/**
@@ -633,6 +691,29 @@ public interface ReactiveZSetCommands {
 	}
 
 	/**
+	 * Get elements in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRevRangeByScore(ByteBuffer key, Range<Double> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(Mono.just(ZRangeByScoreCommand.reverseScoresWithin(range).from(key).limitTo(limit))).next()
+				.map(resp -> {
+					return resp.getOutput().stream().map(tuple -> ByteBuffer.wrap(tuple.getValue())).collect(Collectors.toList());
+				});
+	}
+
+	/**
 	 * Get set of {@link Tuple}s in {@code range} from sorted set in reverse {@code score} ordering.
 	 *
 	 * @param key must not be {@literal null}.
@@ -643,12 +724,35 @@ public interface ReactiveZSetCommands {
 
 		try {
 			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
 		} catch (IllegalArgumentException e) {
 			return Mono.error(e);
 		}
 
 		return zRangeByScore(Mono.just(ZRangeByScoreCommand.reverseScoresWithin(range).withScores().from(key))).next()
 				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get set of {@link Tuple}s in {@code range} from sorted set in reverse {@code score} ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Tuple>> zRevRangeByScoreWithScores(ByteBuffer key, Range<Double> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByScore(
+				Mono.just(ZRangeByScoreCommand.reverseScoresWithin(range).withScores().from(key).limitTo(limit))).next()
+						.map(MultiValueResponse::getOutput);
 	}
 
 	/**

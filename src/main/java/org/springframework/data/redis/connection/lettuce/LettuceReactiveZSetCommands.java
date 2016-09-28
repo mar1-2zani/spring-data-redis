@@ -235,38 +235,79 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 
 				boolean requiresStringConversion = lowerBound instanceof String || upperBound instanceof String;
 
+				boolean isLimited = command.getLimit() != null;
+
 				Observable<List<Tuple>> result = null;
 
 				if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
 					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
 
-						result = (requiresStringConversion
-								? cmd.zrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(), upperBound.toString())
-								: cmd.zrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
-										.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
-
+						if (!isLimited) {
+							result = (requiresStringConversion
+									? cmd.zrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(), upperBound.toString())
+									: cmd.zrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
+											.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+						} else {
+							result = (requiresStringConversion
+									? cmd.zrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(), upperBound.toString(),
+											command.getLimit().getOffset(), command.getLimit().getCount())
+									: cmd.zrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound,
+											command.getLimit().getOffset(), command.getLimit().getCount()))
+													.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+						}
 					} else {
 
-						result = (requiresStringConversion
-								? cmd.zrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString())
-								: cmd.zrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
-										.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						if (!isLimited) {
+							result = (requiresStringConversion
+									? cmd.zrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString())
+									: cmd.zrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
+											.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						} else {
+
+							result = (requiresStringConversion
+									? cmd.zrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString(),
+											command.getLimit().getOffset(), command.getLimit().getCount())
+									: cmd.zrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound,
+											command.getLimit().getOffset(), command.getLimit().getCount()))
+													.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						}
 					}
 				}
 
 				else {
 					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
-						result = (requiresStringConversion
-								? cmd.zrevrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(), upperBound.toString())
-								: cmd.zrevrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
-										.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
 
+						if (!isLimited) {
+							result = (requiresStringConversion
+									? cmd.zrevrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(),
+											upperBound.toString())
+									: cmd.zrevrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
+											.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+						} else {
+
+							result = (requiresStringConversion
+									? cmd.zrevrangebyscoreWithScores(command.getKey().array(), lowerBound.toString(),
+											upperBound.toString(), command.getLimit().getOffset(), command.getLimit().getCount())
+									: cmd.zrevrangebyscoreWithScores(command.getKey().array(), (Double) lowerBound, (Double) upperBound,
+											command.getLimit().getOffset(), command.getLimit().getCount()))
+													.map(sc -> (Tuple) new DefaultTuple(sc.value, sc.score)).toList();
+						}
 					} else {
 
-						result = (requiresStringConversion
-								? cmd.zrevrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString())
-								: cmd.zrevrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
-										.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						if (!isLimited) {
+							result = (requiresStringConversion
+									? cmd.zrevrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString())
+									: cmd.zrevrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound))
+											.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						} else {
+
+							result = (requiresStringConversion
+									? cmd.zrevrangebyscore(command.getKey().array(), lowerBound.toString(), upperBound.toString(),
+											command.getLimit().getOffset(), command.getLimit().getCount())
+									: cmd.zrevrangebyscore(command.getKey().array(), (Double) lowerBound, (Double) upperBound,
+											command.getLimit().getOffset(), command.getLimit().getCount()))
+													.map(value -> (Tuple) new DefaultTuple(value, Double.NaN)).toList();
+						}
 					}
 				}
 
