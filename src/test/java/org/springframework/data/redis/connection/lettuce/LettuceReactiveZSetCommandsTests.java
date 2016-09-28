@@ -205,4 +205,45 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 						new DefaultTuple(VALUE_2_BBUFFER.array(), 2D)));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldCountValuesInRange() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(2D, 3D)).block(), is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldCountValuesInRangeWithNegativeInfinity() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(Double.NEGATIVE_INFINITY, 2D)).block(),
+				is(2L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zCountShouldCountValuesInRangeWithPositiveInfinity() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_1, 3D, VALUE_3);
+
+		assertThat(connection.zSetCommands().zCount(KEY_1_BBUFFER, new Range<>(2D, Double.POSITIVE_INFINITY)).block(),
+				is(2L));
+	}
+
 }

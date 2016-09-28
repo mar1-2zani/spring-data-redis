@@ -609,4 +609,62 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<MultiValueResponse<ZRangeByScoreCommand, Tuple>> zRangeByScore(Publisher<ZRangeByScoreCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZCountCommand extends KeyCommand {
+
+		private final Range<Double> range;
+
+		public ZCountCommand(ByteBuffer key, Range<Double> range) {
+
+			super(key);
+			this.range = range;
+		}
+
+		public static ZCountCommand scoresWithin(Range<Double> range) {
+			return new ZCountCommand(null, range);
+		}
+
+		public ZCountCommand forKey(ByteBuffer key) {
+			return new ZCountCommand(key, range);
+		}
+
+		public Range<Double> getRange() {
+			return range;
+		}
+
+	}
+
+	/**
+	 * Count number of elements within sorted set with scores within {@link Range}. <br />
+	 * <b>NOTE</b> please use {@link Double#NEGATIVE_INFINITY} for {@code -inf} and {@link Double#POSITIVE_INFINITY} for
+	 * {@code +inf}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zCount(ByteBuffer key, Range<Double> range) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zCount(Mono.just(ZCountCommand.scoresWithin(range).forKey(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Count number of elements within sorted set with scores within {@link Range}. <br />
+	 * <b>NOTE</b> please use {@link Double#NEGATIVE_INFINITY} for {@code -inf} and {@link Double#POSITIVE_INFINITY} for
+	 * {@code +inf}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<ZCountCommand, Long>> zCount(Publisher<ZCountCommand> commands);
+
 }

@@ -270,4 +270,36 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zCount(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZCountCommand, Long>> zCount(Publisher<ZCountCommand> commands) {
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<Long> result = null;
+
+				if (command.getRange().getLowerBound().equals(Double.NEGATIVE_INFINITY)
+						|| command.getRange().getUpperBound().equals(Double.POSITIVE_INFINITY)) {
+
+					String lower = command.getRange().getLowerBound().equals(Double.NEGATIVE_INFINITY) ? "-inf"
+							: command.getRange().getLowerBound().toString();
+					String upper = command.getRange().getUpperBound().equals(Double.POSITIVE_INFINITY) ? "+inf"
+							: command.getRange().getUpperBound().toString();
+
+					result = cmd.zcount(command.getKey().array(), lower, upper);
+				} else {
+					result = cmd.zcount(command.getKey().array(), command.getRange().getLowerBound(),
+							command.getRange().getUpperBound());
+				}
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 }
