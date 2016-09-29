@@ -15,9 +15,14 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.List;
+
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -60,6 +65,35 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 
 				return LettuceReactiveRedisConnection.<Boolean> monoConverter().convert(result)
 						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hMGet(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<HGetCommand, ByteBuffer>> hMGet(Publisher<HGetCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<ByteBuffer>> result = null;
+
+				if (command.getFields().size() == 1) {
+					result = cmd.hget(command.getKey().array(), command.getFields().iterator().next().array())
+							.map(ByteBuffer::wrap).map(val -> val != null ? Collections.singletonList(val) : Collections.emptyList());
+				} else {
+					result = cmd
+							.hmget(command.getKey().array(),
+									command.getFields().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]))
+							.map(val -> val != null ? ByteBuffer.wrap(val) : null).toList();
+				}
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
 			});
 		});
 	}

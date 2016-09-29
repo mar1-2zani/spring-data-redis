@@ -16,10 +16,14 @@
 package org.springframework.data.redis.connection;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -127,5 +131,73 @@ public interface ReactiveHashCommands {
 	 * @return
 	 */
 	Flux<BooleanResponse<HSetCommand>> hSet(Publisher<HSetCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class HGetCommand extends KeyCommand {
+
+		private List<ByteBuffer> fields;
+
+		private HGetCommand(ByteBuffer key, List<ByteBuffer> fields) {
+
+			super(key);
+			this.fields = fields;
+		}
+
+		public static HGetCommand field(ByteBuffer field) {
+			return new HGetCommand(null, Collections.singletonList(field));
+		}
+
+		public static HGetCommand fields(List<ByteBuffer> fields) {
+			return new HGetCommand(null, new ArrayList<>(fields));
+		}
+
+		public HGetCommand from(ByteBuffer key) {
+			return new HGetCommand(key, fields);
+		}
+
+		public List<ByteBuffer> getFields() {
+			return fields;
+		}
+	}
+
+	/**
+	 * Get value for given {@code field} from hash at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param field must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<ByteBuffer> hGet(ByteBuffer key, ByteBuffer field) {
+		return hMGet(key, Collections.singletonList(field)).map(val -> val.isEmpty() ? null : val.iterator().next());
+	}
+
+	/**
+	 * Get values for given {@code fields} from hash at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param fields must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> hMGet(ByteBuffer key, List<ByteBuffer> fields) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(fields, "fields must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hMGet(Mono.just(HGetCommand.fields(fields).from(key))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get values for given {@code fields} from hash at {@code key}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<HGetCommand, ByteBuffer>> hMGet(Publisher<HGetCommand> commands);
 
 }

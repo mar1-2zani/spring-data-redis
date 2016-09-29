@@ -15,8 +15,15 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsEqual.*;
+import static org.hamcrest.core.IsNull.*;
 import static org.junit.Assert.*;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.util.Arrays;
 
 import org.junit.Test;
 
@@ -25,12 +32,24 @@ import org.junit.Test;
  */
 public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTestsBase {
 
+	static final String FIELD_1 = "field-1";
+	static final String FIELD_2 = "field-2";
+	static final String FIELD_3 = "field-3";
+
+	static final byte[] FIELD_1_BYTES = FIELD_1.getBytes(Charset.forName("UTF-8"));
+	static final byte[] FIELD_2_BYTES = FIELD_2.getBytes(Charset.forName("UTF-8"));
+	static final byte[] FIELD_3_BYTES = FIELD_3.getBytes(Charset.forName("UTF-8"));
+
+	static final ByteBuffer FIELD_1_BBUFFER = ByteBuffer.wrap(FIELD_1_BYTES);
+	static final ByteBuffer FIELD_2_BBUFFER = ByteBuffer.wrap(FIELD_2_BYTES);
+	static final ByteBuffer FIELD_3_BBUFFER = ByteBuffer.wrap(FIELD_3_BYTES);
+
 	/**
 	 * @see DATAREDIS-525
 	 */
 	@Test
 	public void hSetShouldOperateCorrectly() {
-		assertThat(connection.hashCommands().hSet(KEY_1_BBUFFER, KEY_2_BBUFFER, VALUE_1_BBUFFER).block(), is(true));
+		assertThat(connection.hashCommands().hSet(KEY_1_BBUFFER, FIELD_1_BBUFFER, VALUE_1_BBUFFER).block(), is(true));
 	}
 
 	/**
@@ -38,7 +57,7 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 	 */
 	@Test
 	public void hSetNxShouldOperateCorrectly() {
-		assertThat(connection.hashCommands().hSetNX(KEY_1_BBUFFER, KEY_2_BBUFFER, VALUE_1_BBUFFER).block(), is(true));
+		assertThat(connection.hashCommands().hSetNX(KEY_1_BBUFFER, FIELD_1_BBUFFER, VALUE_1_BBUFFER).block(), is(true));
 	}
 
 	/**
@@ -47,9 +66,61 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 	@Test
 	public void hSetNxShouldReturnFalseIfFieldAlreadyExists() {
 
-		nativeCommands.hset(KEY_1, KEY_2, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
 
-		assertThat(connection.hashCommands().hSetNX(KEY_1_BBUFFER, KEY_2_BBUFFER, VALUE_1_BBUFFER).block(), is(false));
+		assertThat(connection.hashCommands().hSetNX(KEY_1_BBUFFER, FIELD_1_BBUFFER, VALUE_1_BBUFFER).block(), is(false));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hGetShouldReturnValueForExistingField() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hGet(KEY_1_BBUFFER, FIELD_1_BBUFFER).block(), is(equalTo(VALUE_1_BBUFFER)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hGetShouldReturnNullForNotExistingField() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+
+		assertThat(connection.hashCommands().hGet(KEY_1_BBUFFER, FIELD_2_BBUFFER).block(), is(nullValue()));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hMGetShouldReturnValueForFields() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hMGet(KEY_1_BBUFFER, Arrays.asList(FIELD_1_BBUFFER, FIELD_3_BBUFFER)).block(),
+				contains(VALUE_1_BBUFFER, VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hMGetShouldReturnNullValueForFieldsThatHaveNoValue() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands()
+				.hMGet(KEY_1_BBUFFER, Arrays.asList(FIELD_1_BBUFFER, FIELD_2_BBUFFER, FIELD_3_BBUFFER)).block(),
+				contains(VALUE_1_BBUFFER, null, VALUE_3_BBUFFER));
 	}
 
 }
