@@ -24,6 +24,8 @@ import static org.junit.Assert.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.junit.Test;
 
@@ -121,6 +123,21 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(connection.hashCommands()
 				.hMGet(KEY_1_BBUFFER, Arrays.asList(FIELD_1_BBUFFER, FIELD_2_BBUFFER, FIELD_3_BBUFFER)).block(),
 				contains(VALUE_1_BBUFFER, null, VALUE_3_BBUFFER));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hMSetSouldSetValuesCorrectly() {
+
+		Map<ByteBuffer, ByteBuffer> fieldValues = new LinkedHashMap<>();
+		fieldValues.put(FIELD_1_BBUFFER, VALUE_1_BBUFFER);
+		fieldValues.put(FIELD_2_BBUFFER, VALUE_2_BBUFFER);
+
+		assertThat(connection.hashCommands().hMSet(KEY_1_BBUFFER, fieldValues).block(), is(true));
+		assertThat(nativeCommands.hget(KEY_1, FIELD_1), is(equalTo(VALUE_1)));
+		assertThat(nativeCommands.hget(KEY_1, FIELD_2), is(equalTo(VALUE_2)));
 	}
 
 }

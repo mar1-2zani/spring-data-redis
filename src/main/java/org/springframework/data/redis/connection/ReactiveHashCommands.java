@@ -19,8 +19,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.reactivestreams.Publisher;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
@@ -40,44 +42,48 @@ public interface ReactiveHashCommands {
 	 */
 	public class HSetCommand extends KeyCommand {
 
-		private final ByteBuffer field;
-		private final ByteBuffer value;
+		private static final ByteBuffer SINGLE_VALUE_KEY = ByteBuffer.allocate(0);
+		private final Map<ByteBuffer, ByteBuffer> fieldValueMap;
 		private final Boolean upsert;
 
-		private HSetCommand(ByteBuffer key, ByteBuffer field, ByteBuffer value, Boolean upsert) {
+		private HSetCommand(ByteBuffer key, Map<ByteBuffer, ByteBuffer> keyValueMap, Boolean upsert) {
 
 			super(key);
-			this.field = field;
-			this.value = value;
+			this.fieldValueMap = keyValueMap;
 			this.upsert = upsert;
 		}
 
 		public static HSetCommand value(ByteBuffer value) {
-			return new HSetCommand(null, null, value, Boolean.TRUE);
+			return new HSetCommand(null, Collections.singletonMap(SINGLE_VALUE_KEY, value), Boolean.TRUE);
+		}
+
+		public static HSetCommand fieldValues(Map<ByteBuffer, ByteBuffer> fieldValueMap) {
+			return new HSetCommand(null, fieldValueMap, Boolean.TRUE);
 		}
 
 		public HSetCommand ofField(ByteBuffer field) {
-			return new HSetCommand(getKey(), field, value, upsert);
+
+			if (!fieldValueMap.containsKey(SINGLE_VALUE_KEY)) {
+				throw new InvalidDataAccessApiUsageException("Value has not been set.");
+			}
+
+			return new HSetCommand(getKey(), Collections.singletonMap(field, fieldValueMap.get(SINGLE_VALUE_KEY)), upsert);
 		}
 
 		public HSetCommand forKey(ByteBuffer key) {
-			return new HSetCommand(key, field, value, upsert);
+			return new HSetCommand(key, fieldValueMap, upsert);
 		}
 
 		public HSetCommand ifValueNotExists() {
-			return new HSetCommand(getKey(), field, value, Boolean.FALSE);
-		}
-
-		public ByteBuffer getField() {
-			return field;
-		}
-
-		public ByteBuffer getValue() {
-			return value;
+			return new HSetCommand(getKey(), fieldValueMap, Boolean.FALSE);
 		}
 
 		public Boolean isUpsert() {
 			return upsert;
+		}
+
+		public Map<ByteBuffer, ByteBuffer> getFieldValueMap() {
+			return fieldValueMap;
 		}
 	}
 
@@ -121,6 +127,26 @@ public interface ReactiveHashCommands {
 		}
 
 		return hSet(Mono.just(HSetCommand.value(value).ofField(field).forKey(key).ifValueNotExists())).next()
+				.map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Set multiple hash fields to multiple values using data provided in {@code fieldValueMap}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param fieldValueMap must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> hMSet(ByteBuffer key, Map<ByteBuffer, ByteBuffer> fieldValueMap) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(fieldValueMap, "field must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hSet(Mono.just(HSetCommand.fieldValues(fieldValueMap).forKey(key).ifValueNotExists())).next()
 				.map(BooleanResponse::getOutput);
 	}
 

@@ -18,6 +18,9 @@ package org.springframework.data.redis.connection.lettuce;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
@@ -59,9 +62,22 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 
 			return Flux.from(commands).flatMap(command -> {
 
-				Observable<Boolean> result = ObjectUtils.nullSafeEquals(command.isUpsert(), Boolean.TRUE)
-						? cmd.hset(command.getKey().array(), command.getField().array(), command.getValue().array())
-						: cmd.hsetnx(command.getKey().array(), command.getField().array(), command.getValue().array());
+				Observable<Boolean> result = Observable.empty();
+
+				if (command.getFieldValueMap().size() == 1) {
+
+					Entry<ByteBuffer, ByteBuffer> entry = command.getFieldValueMap().entrySet().iterator().next();
+
+					result = ObjectUtils.nullSafeEquals(command.isUpsert(), Boolean.TRUE)
+							? cmd.hset(command.getKey().array(), entry.getKey().array(), entry.getValue().array())
+							: cmd.hsetnx(command.getKey().array(), entry.getKey().array(), entry.getValue().array());
+				} else {
+
+					Map<byte[], byte[]> entries = command.getFieldValueMap().entrySet().stream()
+							.collect(Collectors.toMap(e -> e.getKey().array(), e -> e.getValue().array()));
+
+					result = cmd.hmset(command.getKey().array(), entries).map(LettuceConverters::stringToBoolean);
+				}
 
 				return LettuceReactiveRedisConnection.<Boolean> monoConverter().convert(result)
 						.map(value -> new BooleanResponse<>(command, value));
