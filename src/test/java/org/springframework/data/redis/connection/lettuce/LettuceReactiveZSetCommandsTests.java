@@ -514,4 +514,22 @@ public class LettuceReactiveZSetCommandsTests extends LettuceReactiveCommandsTes
 				is(3L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void zInterStoreShouldWorkCorrectly() {
+
+		nativeCommands.zadd(KEY_1, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_1, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_2, 1D, VALUE_1);
+		nativeCommands.zadd(KEY_2, 2D, VALUE_2);
+		nativeCommands.zadd(KEY_2, 3D, VALUE_3);
+
+		assertThat(
+				connection.zSetCommands()
+						.zInterStore(KEY_3_BBUFFER, Arrays.asList(KEY_1_BBUFFER, KEY_2_BBUFFER), Arrays.asList(2D, 3D)).block(),
+				is(2L));
+	}
+
 }

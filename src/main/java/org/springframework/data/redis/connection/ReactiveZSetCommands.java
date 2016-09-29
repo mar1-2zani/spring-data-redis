@@ -1118,4 +1118,111 @@ public interface ReactiveZSetCommands {
 	 */
 	Flux<NumericResponse<ZUnionStoreCommand, Long>> zUnionStore(Publisher<ZUnionStoreCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZInterStoreCommand extends KeyCommand {
+
+		private final List<ByteBuffer> sourceKeys;
+		private final List<Double> weights;
+		private final Aggregate aggregateFunction;
+
+		private ZInterStoreCommand(ByteBuffer key, List<ByteBuffer> sourceKeys, List<Double> weights, Aggregate aggregate) {
+
+			super(key);
+			this.sourceKeys = sourceKeys;
+			this.weights = weights;
+			this.aggregateFunction = aggregate;
+		}
+
+		public static ZInterStoreCommand sets(List<ByteBuffer> keys) {
+			return new ZInterStoreCommand(null, keys, null, null);
+		}
+
+		public ZInterStoreCommand applyWeights(List<Double> weights) {
+			return new ZInterStoreCommand(getKey(), sourceKeys, weights, aggregateFunction);
+		}
+
+		public ZInterStoreCommand aggregateUsing(Aggregate aggregateFunction) {
+			return new ZInterStoreCommand(getKey(), sourceKeys, weights, aggregateFunction);
+		}
+
+		public ZInterStoreCommand storeAs(ByteBuffer key) {
+			return new ZInterStoreCommand(key, sourceKeys, weights, aggregateFunction);
+		}
+
+		public List<ByteBuffer> getSourceKeys() {
+			return sourceKeys;
+		}
+
+		public List<Double> getWeights() {
+			return weights;
+		}
+
+		public Aggregate getAggregateFunction() {
+			return aggregateFunction;
+		}
+
+		public Integer getNumKeys() {
+			return sourceKeys != null ? sourceKeys.size() : null;
+		}
+	}
+
+	/**
+	 * Intersect sorted {@code sets} and store result in destination {@code destinationKey}.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zInterStore(ByteBuffer destinationKey, List<ByteBuffer> sets) {
+		return zInterStore(destinationKey, sets, null);
+	}
+
+	/**
+	 * Intersect sorted {@code sets} and store result in destination {@code destinationKey} and apply weights to
+	 * individual sets.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @param weights can be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zInterStore(ByteBuffer destinationKey, List<ByteBuffer> sets, List<Double> weights) {
+		return zInterStore(destinationKey, sets, weights, null);
+	}
+
+	/**
+	 * Intersect sorted {@code sets} by applying {@code aggregateFunction} and store result in destination
+	 * {@code destinationKey} and apply weights to individual sets.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @param weights can be {@literal null}.
+	 * @param aggregateFunction can be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zInterStore(ByteBuffer destinationKey, List<ByteBuffer> sets, List<Double> weights,
+			Aggregate aggregateFunction) {
+
+		try {
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(sets, "sets must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zInterStore(Mono.just(
+				ZInterStoreCommand.sets(sets).aggregateUsing(aggregateFunction).applyWeights(weights).storeAs(destinationKey)))
+						.next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Intersect sorted {@code sets} by applying {@code aggregateFunction} and store result in destination
+	 * {@code destinationKey} and apply weights to individual sets.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<NumericResponse<ZInterStoreCommand, Long>> zInterStore(Publisher<ZInterStoreCommand> commands);
 }

@@ -449,6 +449,31 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zInterStore(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZInterStoreCommand, Long>> zInterStore(Publisher<ZInterStoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				ZStoreArgs args = null;
+				if (command.getAggregateFunction() != null || command.getWeights() != null) {
+					args = zStoreArgs(command.getAggregateFunction(), command.getWeights());
+				}
+
+				byte[][] sourceKeys = command.getSourceKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
+				Observable<Long> result = args != null ? cmd.zinterstore(command.getKey().array(), args, sourceKeys)
+						: cmd.zinterstore(command.getKey().array(), sourceKeys);
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 	private ZStoreArgs zStoreArgs(Aggregate aggregate, List<Double> weights) {
 
 		ZStoreArgs args = new ZStoreArgs();
