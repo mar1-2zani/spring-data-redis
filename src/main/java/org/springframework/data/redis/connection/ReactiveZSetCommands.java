@@ -27,6 +27,7 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.RedisZSetCommands.Aggregate;
 import org.springframework.data.redis.connection.RedisZSetCommands.Limit;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.data.util.DirectFieldAccessFallbackBeanWrapper;
@@ -1008,5 +1009,113 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZRemRangeByScoreCommand, Long>> zRemRangeByScore(Publisher<ZRemRangeByScoreCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZUnionStoreCommand extends KeyCommand {
+
+		private final List<ByteBuffer> sourceKeys;
+		private final List<Double> weights;
+		private final Aggregate aggregateFunction;
+
+		private ZUnionStoreCommand(ByteBuffer key, List<ByteBuffer> sourceKeys, List<Double> weights, Aggregate aggregate) {
+
+			super(key);
+			this.sourceKeys = sourceKeys;
+			this.weights = weights;
+			this.aggregateFunction = aggregate;
+		}
+
+		public static ZUnionStoreCommand sets(List<ByteBuffer> keys) {
+			return new ZUnionStoreCommand(null, keys, null, null);
+		}
+
+		public ZUnionStoreCommand applyWeights(List<Double> weights) {
+			return new ZUnionStoreCommand(getKey(), sourceKeys, weights, aggregateFunction);
+		}
+
+		public ZUnionStoreCommand aggregateUsing(Aggregate aggregateFunction) {
+			return new ZUnionStoreCommand(getKey(), sourceKeys, weights, aggregateFunction);
+		}
+
+		public ZUnionStoreCommand storeAs(ByteBuffer key) {
+			return new ZUnionStoreCommand(key, sourceKeys, weights, aggregateFunction);
+		}
+
+		public List<ByteBuffer> getSourceKeys() {
+			return sourceKeys;
+		}
+
+		public List<Double> getWeights() {
+			return weights;
+		}
+
+		public Aggregate getAggregateFunction() {
+			return aggregateFunction;
+		}
+
+		public Integer getNumKeys() {
+			return sourceKeys != null ? sourceKeys.size() : null;
+		}
+	}
+
+	/**
+	 * Union sorted {@code sets} and store result in destination {@code destinationKey}.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zUnionStore(ByteBuffer destinationKey, List<ByteBuffer> sets) {
+		return zUnionStore(destinationKey, sets, null);
+	}
+
+	/**
+	 * Union sorted {@code sets} and store result in destination {@code destinationKey} and apply weights to individual
+	 * sets.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @param weights can be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zUnionStore(ByteBuffer destinationKey, List<ByteBuffer> sets, List<Double> weights) {
+		return zUnionStore(destinationKey, sets, weights, null);
+	}
+
+	/**
+	 * Union sorted {@code sets} by applying {@code aggregateFunction} and store result in destination
+	 * {@code destinationKey} and apply weights to individual sets.
+	 *
+	 * @param destinationKey must not be {@literal null}.
+	 * @param sets must not be {@literal null}.
+	 * @param weights can be {@literal null}.
+	 * @param aggregateFunction can be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> zUnionStore(ByteBuffer destinationKey, List<ByteBuffer> sets, List<Double> weights,
+			Aggregate aggregateFunction) {
+
+		try {
+			Assert.notNull(destinationKey, "destinationKey must not be null");
+			Assert.notNull(sets, "sets must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zUnionStore(Mono.just(
+				ZUnionStoreCommand.sets(sets).aggregateUsing(aggregateFunction).applyWeights(weights).storeAs(destinationKey)))
+						.next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Union sorted {@code sets} by applying {@code aggregateFunction} and store result in destination
+	 * {@code destinationKey} and apply weights to individual sets.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<NumericResponse<ZUnionStoreCommand, Long>> zUnionStore(Publisher<ZUnionStoreCommand> commands);
 
 }

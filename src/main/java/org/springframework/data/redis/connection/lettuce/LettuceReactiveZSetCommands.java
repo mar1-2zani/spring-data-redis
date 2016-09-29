@@ -25,12 +25,14 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyComm
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.ReactiveZSetCommands;
+import org.springframework.data.redis.connection.RedisZSetCommands.Aggregate;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 import com.lambdaworks.redis.ScoredValue;
 import com.lambdaworks.redis.ZAddArgs;
+import com.lambdaworks.redis.ZStoreArgs;
 
 import reactor.core.publisher.Flux;
 import rx.Observable;
@@ -420,6 +422,59 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zUnionStore(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<ZUnionStoreCommand, Long>> zUnionStore(Publisher<ZUnionStoreCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				ZStoreArgs args = null;
+				if (command.getAggregateFunction() != null || command.getWeights() != null) {
+					args = zStoreArgs(command.getAggregateFunction(), command.getWeights());
+				}
+
+				byte[][] sourceKeys = command.getSourceKeys().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]);
+				Observable<Long> result = args != null ? cmd.zunionstore(command.getKey().array(), args, sourceKeys)
+						: cmd.zunionstore(command.getKey().array(), sourceKeys);
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	private ZStoreArgs zStoreArgs(Aggregate aggregate, List<Double> weights) {
+
+		ZStoreArgs args = new ZStoreArgs();
+		if (aggregate != null) {
+			switch (aggregate) {
+				case MIN:
+					args.min();
+					break;
+				case MAX:
+					args.max();
+					break;
+				default:
+					args.sum();
+					break;
+			}
+		}
+
+		// TODO: fix when https://github.com/mp911de/lettuce/issues/368 resolved
+		if (weights != null) {
+			long[] lg = new long[weights.size()];
+			for (int i = 0; i < lg.length; i++) {
+				lg[i] = weights.get(i).longValue();
+			}
+			args.weights(lg);
+		}
+		return args;
 	}
 
 }
