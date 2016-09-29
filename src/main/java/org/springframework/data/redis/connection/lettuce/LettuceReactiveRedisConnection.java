@@ -21,6 +21,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
+import org.springframework.data.redis.connection.ReactiveHashCommands;
 import org.springframework.data.redis.connection.ReactiveKeyCommands;
 import org.springframework.data.redis.connection.ReactiveListCommands;
 import org.springframework.data.redis.connection.ReactiveNumberCommands;
@@ -110,6 +111,11 @@ public class LettuceReactiveRedisConnection implements ReactiveRedisConnection {
 	@Override
 	public ReactiveZSetCommands zSetCommands() {
 		return new LettuceReactiveZSetCommands(this);
+	}
+
+	@Override
+	public ReactiveHashCommands hashCommands() {
+		return new LettuceReactiveHashCommands(this);
 	}
 
 	protected RedisClusterReactiveCommands<byte[], byte[]> getCommands() {
