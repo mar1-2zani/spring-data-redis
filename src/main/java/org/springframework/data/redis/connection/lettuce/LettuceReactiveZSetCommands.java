@@ -180,7 +180,7 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 
 			return Flux.from(commands).flatMap(command -> {
 
-				Observable<List<Tuple>> result = null;
+				Observable<List<Tuple>> result = Observable.empty();
 
 				if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
 					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
@@ -239,7 +239,7 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 
 				boolean isLimited = command.getLimit() != null;
 
-				Observable<List<Tuple>> result = null;
+				Observable<List<Tuple>> result = Observable.empty();
 
 				if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
 					if (ObjectUtils.nullSafeEquals(command.getWithScores(), Boolean.TRUE)) {
@@ -333,7 +333,7 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 				Object lowerBound = ReactiveZSetCommands.AgrumentConverters.lowerBoundArgOf(command.getRange());
 				Object upperBound = ReactiveZSetCommands.AgrumentConverters.upperBoundArgOf(command.getRange());
 
-				Observable<Long> result = null;
+				Observable<Long> result = Observable.empty();
 
 				if (lowerBound instanceof String || upperBound instanceof String) {
 					result = cmd.zcount(command.getKey().array(), lowerBound.toString(), upperBound.toString());
@@ -470,6 +470,48 @@ public class LettuceReactiveZSetCommands implements ReactiveZSetCommands {
 						: cmd.zinterstore(command.getKey().array(), sourceKeys);
 				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(result)
 						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveZSetCommands#zRangeByLex(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<ZRangeByLexCommand, ByteBuffer>> zRangeByLex(Publisher<ZRangeByLexCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<byte[]> result = Observable.empty();
+
+				String lowerBound = ReactiveZSetCommands.AgrumentConverters.lowerBoundArgOf(command.getRange()).toString();
+				String upperBound = ReactiveZSetCommands.AgrumentConverters.upperBoundArgOf(command.getRange()).toString();
+
+				if (command.getLimit() != null) {
+
+					if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
+						result = cmd.zrangebylex(command.getKey().array(), lowerBound, upperBound, command.getLimit().getOffset(),
+								command.getLimit().getCount());
+					} else {
+
+						// TODO: fix when https://github.com/mp911de/lettuce/issues/369 resolved
+						throw new UnsupportedOperationException("Lettuce does not support ZREVRANGEBYLEX.");
+					}
+				} else {
+					if (ObjectUtils.nullSafeEquals(command.getDirection(), Direction.ASC)) {
+						result = cmd.zrangebylex(command.getKey().array(), lowerBound, upperBound);
+					} else {
+
+						// TODO: fix when https://github.com/mp911de/lettuce/issues/369 resolved
+						throw new UnsupportedOperationException("Lettuce does not support ZREVRANGEBYLEX.");
+					}
+				}
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter()
+						.convert(result.map(ByteBuffer::wrap).toList()).map(value -> new MultiValueResponse<>(command, value));
 			});
 		});
 	}

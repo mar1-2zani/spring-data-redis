@@ -32,6 +32,8 @@ import org.springframework.data.redis.connection.RedisZSetCommands.Limit;
 import org.springframework.data.redis.connection.RedisZSetCommands.Tuple;
 import org.springframework.data.util.DirectFieldAccessFallbackBeanWrapper;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -71,6 +73,17 @@ public interface ReactiveZSetCommands {
 					}
 					return converted;
 				}
+
+				if (value instanceof String) {
+					if (!StringUtils.hasText((String) value)) {
+						return upper ? "+" : "-";
+					}
+					if (ObjectUtils.nullSafeEquals(value, "+") || ObjectUtils.nullSafeEquals(value, "-")) {
+						return value;
+					}
+					return (inclusive ? "[" : "(") + value.toString();
+				}
+
 				return inclusive ? value : "(" + value;
 			};
 		}
@@ -1225,4 +1238,128 @@ public interface ReactiveZSetCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<ZInterStoreCommand, Long>> zInterStore(Publisher<ZInterStoreCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class ZRangeByLexCommand extends KeyCommand {
+
+		private final Range<String> range;
+		private final Direction direction;
+		private final Limit limit;
+
+		private ZRangeByLexCommand(ByteBuffer key, Range<String> range, Direction direction, Limit limit) {
+
+			super(key);
+			this.range = range;
+			this.direction = direction;
+			this.limit = limit;
+		}
+
+		public static ZRangeByLexCommand reverseStringsWithin(Range<String> range) {
+			return new ZRangeByLexCommand(null, range, Direction.DESC, null);
+		}
+
+		public static ZRangeByLexCommand stringsWithin(Range<String> range) {
+			return new ZRangeByLexCommand(null, range, Direction.ASC, null);
+		}
+
+		public ZRangeByLexCommand from(ByteBuffer key) {
+			return new ZRangeByLexCommand(key, range, direction, limit);
+		}
+
+		public ZRangeByLexCommand limitTo(Limit limit) {
+			return new ZRangeByLexCommand(getKey(), range, direction, limit);
+		}
+
+		public Range<String> getRange() {
+			return range;
+		}
+
+		public Limit getLimit() {
+			return limit;
+		}
+
+		public Direction getDirection() {
+			return direction;
+		}
+	}
+
+	/**
+	 * Get all the elements in {@link Range} from the sorted set at {@literal key} in lexicographical ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRangeByLex(ByteBuffer key, Range<String> range) {
+		return zRangeByLex(key, range, null);
+	}
+
+	/**
+	 * Get all the elements in {@link Range} from the sorted set at {@literal key} in lexicographical ordering. Result is
+	 * limited via {@link Limit}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRangeByLex(ByteBuffer key, Range<String> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByLex(Mono.just(ZRangeByLexCommand.stringsWithin(range).from(key).limitTo(limit))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get all the elements in {@link Range} from the sorted set at {@literal key} in lexicographical ordering.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRevRangeByLex(ByteBuffer key, Range<String> range) {
+		return zRevRangeByLex(key, range, null);
+	}
+
+	/**
+	 * Get all the elements in {@link Range} from the sorted set at {@literal key} in lexicographical ordering. Result is
+	 * limited via {@link Limit}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> zRevRangeByLex(ByteBuffer key, Range<String> range, Limit limit) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(range, "range must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return zRangeByLex(Mono.just(ZRangeByLexCommand.reverseStringsWithin(range).from(key).limitTo(limit))).next()
+				.map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get all the elements in {@link Range} from the sorted set at {@literal key} in lexicographical ordering. Result is
+	 * limited via {@link Limit} and sorted by {@link ZRangeByLexCommand#getDirection()}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param range must not be {@literal null}.
+	 * @param limit can be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<ZRangeByLexCommand, ByteBuffer>> zRangeByLex(Publisher<ZRangeByLexCommand> commands);
+
 }
