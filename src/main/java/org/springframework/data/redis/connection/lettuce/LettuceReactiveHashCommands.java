@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -202,6 +203,27 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 
 				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter().convert(result)
 						.map(value -> new MultiValueResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hGetAll(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<CommandResponse<KeyCommand, Map<ByteBuffer, ByteBuffer>>> hGetAll(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<Map<ByteBuffer, ByteBuffer>> result = (Observable<Map<ByteBuffer, ByteBuffer>>) cmd
+						.hgetall(command.getKey().array()).map(val -> val.entrySet().stream()
+								.collect(Collectors.toMap(e -> ByteBuffer.wrap(e.getKey()), e -> ByteBuffer.wrap(e.getValue()))));
+
+				return LettuceReactiveRedisConnection.<Map<ByteBuffer, ByteBuffer>> monoConverter().convert(result)
+						.map(value -> new CommandResponse<>(command, value));
 			});
 		});
 	}

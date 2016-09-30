@@ -228,4 +228,17 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 				containsInAnyOrder(VALUE_1_BBUFFER, VALUE_2_BBUFFER, VALUE_3_BBUFFER));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hGetAlllShouldReturnEntriesCorrectly() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		System.out.println(connection.hashCommands().hGetAll(KEY_1_BBUFFER).block());
+	}
+
 }

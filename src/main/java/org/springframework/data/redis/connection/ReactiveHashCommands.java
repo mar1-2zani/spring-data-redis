@@ -24,6 +24,7 @@ import java.util.Map;
 import org.reactivestreams.Publisher;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
@@ -427,5 +428,30 @@ public interface ReactiveHashCommands {
 	 * @return
 	 */
 	Flux<MultiValueResponse<KeyCommand, ByteBuffer>> hVals(Publisher<KeyCommand> commands);
+
+	/**
+	 * Get entire hash stored at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Map<ByteBuffer, ByteBuffer>> hGetAll(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hGetAll(Mono.just(new KeyCommand(key))).next().map(CommandResponse::getOutput);
+	}
+
+	/**
+	 * Get entire hash stored at {@code key}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<CommandResponse<KeyCommand, Map<ByteBuffer, ByteBuffer>>> hGetAll(Publisher<KeyCommand> commands);
 
 }
