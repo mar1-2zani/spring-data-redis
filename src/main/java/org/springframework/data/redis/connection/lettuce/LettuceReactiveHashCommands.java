@@ -114,4 +114,21 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hExists(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<BooleanResponse<HExistsCommand>> hExists(Publisher<HExistsCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
+						.convert(cmd.hexists(command.getKey().array(), command.getField().array()))
+						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
+
 }

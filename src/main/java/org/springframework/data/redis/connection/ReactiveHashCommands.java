@@ -226,4 +226,57 @@ public interface ReactiveHashCommands {
 	 */
 	Flux<MultiValueResponse<HGetCommand, ByteBuffer>> hMGet(Publisher<HGetCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class HExistsCommand extends KeyCommand {
+
+		private final ByteBuffer field;
+
+		private HExistsCommand(ByteBuffer key, ByteBuffer field) {
+
+			super(key);
+			this.field = field;
+		}
+
+		public static HExistsCommand field(ByteBuffer field) {
+			return new HExistsCommand(null, field);
+		}
+
+		public HExistsCommand in(ByteBuffer key) {
+			return new HExistsCommand(key, field);
+		}
+
+		public ByteBuffer getField() {
+			return field;
+		}
+	}
+
+	/**
+	 * Determine if given hash {@code field} exists.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param field must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> hExists(ByteBuffer key, ByteBuffer field) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(field, "field must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hExists(Mono.just(HExistsCommand.field(field).in(key))).next().map(BooleanResponse::getOutput);
+	}
+
+	/**
+	 * Determine if given hash {@code field} exists.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<BooleanResponse<HExistsCommand>> hExists(Publisher<HExistsCommand> commands);
+
 }

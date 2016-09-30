@@ -140,4 +140,23 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(nativeCommands.hget(KEY_1, FIELD_2), is(equalTo(VALUE_2)));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hExistsShouldReturnTrueForExistingField() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+
+		assertThat(connection.hashCommands().hExists(KEY_1_BBUFFER, FIELD_1_BBUFFER).block(), is(true));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hExistsShouldReturnFalseForNonExistingField() {
+		assertThat(connection.hashCommands().hExists(KEY_1_BBUFFER, FIELD_1_BBUFFER).block(), is(false));
+	}
+
 }
