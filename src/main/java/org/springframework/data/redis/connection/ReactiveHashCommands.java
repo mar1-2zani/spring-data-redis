@@ -26,6 +26,7 @@ import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -278,5 +279,78 @@ public interface ReactiveHashCommands {
 	 * @return
 	 */
 	Flux<BooleanResponse<HExistsCommand>> hExists(Publisher<HExistsCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class HDelCommand extends KeyCommand {
+
+		private final List<ByteBuffer> fields;
+
+		private HDelCommand(ByteBuffer key, List<ByteBuffer> fields) {
+			super(key);
+			this.fields = fields;
+		}
+
+		public static HDelCommand field(ByteBuffer field) {
+			return new HDelCommand(null, Collections.singletonList(field));
+		}
+
+		public static HDelCommand fields(List<ByteBuffer> fields) {
+			return new HDelCommand(null, new ArrayList<>(fields));
+		}
+
+		public HDelCommand from(ByteBuffer key) {
+			return new HDelCommand(key, fields);
+		}
+
+		public List<ByteBuffer> getFields() {
+			return fields;
+		}
+	}
+
+	/**
+	 * Delete given hash {@code field}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param field must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Boolean> hDel(ByteBuffer key, ByteBuffer field) {
+
+		try {
+			Assert.notNull(field, "field must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+		return hDel(key, Collections.singletonList(field)).map(val -> val > 0 ? Boolean.TRUE : Boolean.FALSE);
+	}
+
+	/**
+	 * Delete given hash {@code fields}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param fields must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> hDel(ByteBuffer key, List<ByteBuffer> fields) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(fields, "fields must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hDel(Mono.just(HDelCommand.fields(fields).from(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Delete given hash {@code fields}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<HDelCommand, Long>> hDel(Publisher<HDelCommand> commands);
 
 }

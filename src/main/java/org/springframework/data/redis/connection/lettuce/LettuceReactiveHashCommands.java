@@ -26,6 +26,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -127,6 +128,25 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 				return LettuceReactiveRedisConnection.<Boolean> monoConverter()
 						.convert(cmd.hexists(command.getKey().array(), command.getField().array()))
 						.map(value -> new BooleanResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hDel(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<HDelCommand, Long>> hDel(Publisher<HDelCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				return LettuceReactiveRedisConnection.<Long> monoConverter()
+						.convert(cmd.hdel(command.getKey().array(),
+								command.getFields().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
+						.map(value -> new NumericResponse<>(command, value));
 			});
 		});
 	}

@@ -159,4 +159,31 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 		assertThat(connection.hashCommands().hExists(KEY_1_BBUFFER, FIELD_1_BBUFFER).block(), is(false));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hDelShouldRemoveSingleFieldsCorrectly() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hDel(KEY_1_BBUFFER, FIELD_2_BBUFFER).block(), is(true));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hDelShouldRemoveMultipleFieldsCorrectly() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hDel(KEY_1_BBUFFER, Arrays.asList(FIELD_1_BBUFFER, FIELD_3_BBUFFER)).block(),
+				is(2L));
+	}
+
 }
