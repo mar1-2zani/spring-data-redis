@@ -134,4 +134,32 @@ public class LettuceReactiveNumberCommands implements ReactiveNumberCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveNumberCommands#hIncrBy(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public <T extends Number> Flux<NumericResponse<HIncrByCommand<T>, T>> hIncrBy(Publisher<HIncrByCommand<T>> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				T incrBy = command.getValue();
+
+				Observable<? extends Number> result = null;
+
+				if (incrBy instanceof Double || incrBy instanceof Float) {
+					result = cmd.hincrbyfloat(command.getKey().array(), command.getField().array(), incrBy.doubleValue());
+				} else {
+					result = cmd.hincrby(command.getKey().array(), command.getField().array(), incrBy.longValue());
+				}
+
+				return LettuceReactiveRedisConnection.<T> monoConverter()
+						.convert(result.map(val -> NumberUtils.convertNumberToTargetClass(val, incrBy.getClass())))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
 }

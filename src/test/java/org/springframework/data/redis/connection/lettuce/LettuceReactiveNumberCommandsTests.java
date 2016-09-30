@@ -58,4 +58,25 @@ public class LettuceReactiveNumberCommandsTests extends LettuceReactiveCommandsT
 		assertThat(connection.numberCommands().decrBy(KEY_1_BBUFFER, 3).block(), is(-3));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hIncrByDoubleShouldIncreaseValueCorrectly() {
+
+		nativeCommands.hset(KEY_1, KEY_1, "2");
+
+		assertThat(connection.numberCommands().hIncrBy(KEY_1_BBUFFER, KEY_1_BBUFFER, 1.5D).block(), is(closeTo(3.5D, 0D)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hIncrByIntegerShouldIncreaseValueCorrectly() {
+
+		nativeCommands.hset(KEY_1, KEY_1, "2");
+
+		assertThat(connection.numberCommands().hIncrBy(KEY_1_BBUFFER, KEY_1_BBUFFER, 3).block(), is(5));
+	}
 }

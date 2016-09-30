@@ -62,17 +62,17 @@ public interface ReactiveNumberCommands {
 
 		private T value;
 
-		public IncrByCommand(ByteBuffer key, T value) {
+		private IncrByCommand(ByteBuffer key, T value) {
 			super(key);
 			this.value = value;
 		}
 
-		public static <T extends Number> ReactiveNumberCommands.IncrByCommand<T> incr(ByteBuffer key) {
-			return new ReactiveNumberCommands.IncrByCommand<T>(key, null);
+		public static <T extends Number> IncrByCommand<T> incr(ByteBuffer key) {
+			return new IncrByCommand<T>(key, null);
 		}
 
-		public ReactiveNumberCommands.IncrByCommand<T> by(T value) {
-			return new ReactiveNumberCommands.IncrByCommand<T>(getKey(), value);
+		public IncrByCommand<T> by(T value) {
+			return new IncrByCommand<T>(getKey(), value);
 		}
 
 		public T getValue() {
@@ -189,5 +189,70 @@ public interface ReactiveNumberCommands {
 	 */
 	<T extends Number> Flux<NumericResponse<ReactiveNumberCommands.DecrByCommand<T>, T>> decrBy(
 			Publisher<ReactiveNumberCommands.DecrByCommand<T>> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class HIncrByCommand<T extends Number> extends KeyCommand {
+
+		private final ByteBuffer field;
+		private final T value;
+
+		private HIncrByCommand(ByteBuffer key, ByteBuffer field, T value) {
+
+			super(key);
+			this.field = field;
+			this.value = value;
+		}
+
+		public static <T extends Number> HIncrByCommand<T> incr(ByteBuffer field) {
+			return new HIncrByCommand<T>(null, field, null);
+		}
+
+		public HIncrByCommand<T> by(T value) {
+			return new HIncrByCommand<T>(getKey(), field, value);
+		}
+
+		public HIncrByCommand<T> forKey(ByteBuffer key) {
+			return new HIncrByCommand<T>(key, field, value);
+		}
+
+		public T getValue() {
+			return value;
+		}
+
+		public ByteBuffer getField() {
+			return field;
+		}
+	}
+
+	/**
+	 * Increment {@code value} of a hash {@code field} by the given {@code value}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param field must not be {@literal null}.
+	 * @param value must not be {@literal null}.
+	 * @return
+	 */
+	default <T extends Number> Mono<T> hIncrBy(ByteBuffer key, ByteBuffer field, T value) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(field, "field must not be null");
+			Assert.notNull(value, "value must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hIncrBy(Mono.just(HIncrByCommand.<T> incr(field).by(value).forKey(key))).next()
+				.map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Increment {@code value} of a hash {@code field} by the given {@code value}.
+	 *
+	 * @return
+	 */
+	<T extends Number> Flux<NumericResponse<HIncrByCommand<T>, T>> hIncrBy(Publisher<HIncrByCommand<T>> commands);
 
 }
