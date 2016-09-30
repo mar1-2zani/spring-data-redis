@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.BooleanResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.util.Assert;
@@ -146,6 +147,22 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 				return LettuceReactiveRedisConnection.<Long> monoConverter()
 						.convert(cmd.hdel(command.getKey().array(),
 								command.getFields().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])))
+						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hLen(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<NumericResponse<KeyCommand, Long>> hLen(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<Long> monoConverter().convert(cmd.hlen(command.getKey().array()))
 						.map(value -> new NumericResponse<>(command, value));
 			});
 		});

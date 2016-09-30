@@ -353,4 +353,29 @@ public interface ReactiveHashCommands {
 	 */
 	Flux<NumericResponse<HDelCommand, Long>> hDel(Publisher<HDelCommand> commands);
 
+	/**
+	 * Get size of hash at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Long> hLen(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hLen(Mono.just(new KeyCommand(key))).next().map(NumericResponse::getOutput);
+	}
+
+	/**
+	 * Get size of hash at {@code key}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<NumericResponse<KeyCommand, Long>> hLen(Publisher<KeyCommand> commands);
+
 }

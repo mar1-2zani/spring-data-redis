@@ -186,4 +186,17 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 				is(2L));
 	}
 
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hLenShouldReturnSizeCorrectly() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hLen(KEY_1_BBUFFER).block(), is(3L));
+	}
+
 }
