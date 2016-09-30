@@ -168,4 +168,23 @@ public class LettuceReactiveHashCommands implements ReactiveHashCommands {
 		});
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveHashCommands#hKeys(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<KeyCommand, ByteBuffer>> hKeys(Publisher<KeyCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<ByteBuffer>> result = cmd.hkeys(command.getKey().array()).map(ByteBuffer::wrap).toList();
+
+				return LettuceReactiveRedisConnection.<List<ByteBuffer>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
+			});
+		});
+	}
+
 }

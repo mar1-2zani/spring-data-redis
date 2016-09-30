@@ -378,4 +378,29 @@ public interface ReactiveHashCommands {
 	 */
 	Flux<NumericResponse<KeyCommand, Long>> hLen(Publisher<KeyCommand> commands);
 
+	/**
+	 * Get key set (fields) of hash at {@code key}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<ByteBuffer>> hKeys(ByteBuffer key) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return hKeys(Mono.just(new KeyCommand(key))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get key set (fields) of hash at {@code key}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<KeyCommand, ByteBuffer>> hKeys(Publisher<KeyCommand> commands);
+
 }

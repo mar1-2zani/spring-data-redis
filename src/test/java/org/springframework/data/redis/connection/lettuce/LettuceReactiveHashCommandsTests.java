@@ -15,6 +15,7 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.*;
 import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
 import static org.hamcrest.core.IsEqual.*;
@@ -197,6 +198,20 @@ public class LettuceReactiveHashCommandsTests extends LettuceReactiveCommandsTes
 		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
 
 		assertThat(connection.hashCommands().hLen(KEY_1_BBUFFER).block(), is(3L));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void hKeysShouldReturnFieldsCorrectly() {
+
+		nativeCommands.hset(KEY_1, FIELD_1, VALUE_1);
+		nativeCommands.hset(KEY_1, FIELD_2, VALUE_2);
+		nativeCommands.hset(KEY_1, FIELD_3, VALUE_3);
+
+		assertThat(connection.hashCommands().hKeys(KEY_1_BBUFFER).block(),
+				containsInAnyOrder(FIELD_1_BBUFFER, FIELD_2_BBUFFER, FIELD_3_BBUFFER));
 	}
 
 }
