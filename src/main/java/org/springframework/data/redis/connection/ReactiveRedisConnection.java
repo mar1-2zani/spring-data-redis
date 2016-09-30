@@ -74,7 +74,7 @@ public interface ReactiveRedisConnection extends Closeable {
 	/**
 	 * Get {@link ReactiveZSetCommands}.
 	 *
-	 * @return
+	 * @return never {@literal null}.
 	 */
 	ReactiveZSetCommands zSetCommands();
 
@@ -84,6 +84,13 @@ public interface ReactiveRedisConnection extends Closeable {
 	 * @return
 	 */
 	ReactiveHashCommands hashCommands();
+
+	/**
+	 * Get {@link ReacktiveGeoCommands}
+	 *
+	 * @return never {@literal null}.
+	 */
+	ReactiveGeoCommands geoCommands();
 
 	static interface Command {
 
