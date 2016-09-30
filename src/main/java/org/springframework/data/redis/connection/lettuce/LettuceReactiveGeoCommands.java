@@ -20,12 +20,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.geo.Distance;
 import org.springframework.data.redis.connection.ReactiveGeoCommands;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
 import org.springframework.util.Assert;
 
+import com.lambdaworks.redis.GeoArgs;
+
 import reactor.core.publisher.Flux;
+import rx.Observable;
 
 /**
  * @author Christoph Strobl
@@ -68,6 +74,31 @@ public class LettuceReactiveGeoCommands implements ReactiveGeoCommands {
 				return LettuceReactiveRedisConnection.<Long> monoConverter()
 						.convert(cmd.geoadd(command.getKey().array(), values.toArray()))
 						.map(value -> new NumericResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveGeoCommands#geoDist(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<CommandResponse<GeoDistCommand, Distance>> geoDist(Publisher<GeoDistCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				GeoArgs.Unit geoUnit = LettuceConverters.toGeoArgsUnit(command.getMetric());
+				Converter<Double, Distance> distanceConverter = LettuceConverters
+						.distanceConverterForMetric(command.getMetric());
+
+				Observable<Distance> result = cmd
+						.geodist(command.getKey().array(), command.from().array(), command.to().array(), geoUnit)
+						.map(distanceConverter::convert);
+
+				return LettuceReactiveRedisConnection.<Distance> monoConverter().convert(result)
+						.map(value -> new CommandResponse<>(command, value));
 			});
 		});
 	}

@@ -16,6 +16,7 @@
 package org.springframework.data.redis.connection.lettuce;
 
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.number.IsCloseTo.*;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
@@ -23,6 +24,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.springframework.data.geo.Metrics;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
 
@@ -62,4 +64,31 @@ public class LettuceReactiveGeoCommandsTests extends LettuceReactiveCommandsTest
 		assertThat(connection.geoCommands().geoAdd(KEY_1_BBUFFER, Arrays.asList(ARIGENTO, CATANIA, PALERMO)).block(),
 				is(3L));
 	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoDistShouldReturnDistanceInMetersByDefault() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		assertThat(connection.geoCommands().geoDist(KEY_1_BBUFFER, PALERMO.getName(), CATANIA.getName()).block().getValue(),
+				is(closeTo(166274.15156960033D, 0.005)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoDistShouldReturnDistanceInDesiredMetric() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		assertThat(connection.geoCommands().geoDist(KEY_1_BBUFFER, PALERMO.getName(), CATANIA.getName(), Metrics.KILOMETERS)
+				.block().getValue(), is(closeTo(166.27415156960033D, 0.005)));
+	}
+
 }

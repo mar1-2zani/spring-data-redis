@@ -21,9 +21,13 @@ import java.util.Collections;
 import java.util.List;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.Metric;
 import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
+import org.springframework.data.redis.connection.RedisGeoCommands.DistanceUnit;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
 import org.springframework.util.Assert;
 
@@ -133,5 +137,109 @@ public interface ReactiveGeoCommands {
 	 * @return
 	 */
 	Flux<NumericResponse<GeoAddCommand, Long>> geoAdd(Publisher<GeoAddCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class GeoDistCommand extends KeyCommand {
+
+		private final ByteBuffer from;
+		private final ByteBuffer to;
+		private final Metric metric;
+
+		private GeoDistCommand(ByteBuffer key, ByteBuffer from, ByteBuffer to, Metric metric) {
+			super(key);
+			this.from = from;
+			this.to = to;
+			this.metric = metric;
+		}
+
+		static GeoDistCommand units(Metric unit) {
+			return new GeoDistCommand(null, null, null, unit);
+		}
+
+		public static GeoDistCommand meters() {
+			return units(DistanceUnit.METERS);
+		}
+
+		public static GeoDistCommand kiometers() {
+			return units(DistanceUnit.KILOMETERS);
+		}
+
+		public static GeoDistCommand miles() {
+			return units(DistanceUnit.MILES);
+		}
+
+		public static GeoDistCommand feet() {
+			return units(DistanceUnit.FEET);
+		}
+
+		public GeoDistCommand between(ByteBuffer from) {
+			return new GeoDistCommand(getKey(), from, to, metric);
+		}
+
+		public GeoDistCommand and(ByteBuffer to) {
+			return new GeoDistCommand(getKey(), from, to, metric);
+		}
+
+		public GeoDistCommand forKey(ByteBuffer key) {
+			return new GeoDistCommand(key, from, to, metric);
+		}
+
+		public ByteBuffer from() {
+			return from;
+		}
+
+		public ByteBuffer to() {
+			return to;
+		}
+
+		public Metric getMetric() {
+			return metric;
+		}
+	}
+
+	/**
+	 * Get the {@link Distance} between {@literal from} and {@literal to}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param from must not be {@literal null}.
+	 * @param to must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Distance> geoDist(ByteBuffer key, ByteBuffer from, ByteBuffer to) {
+		return geoDist(key, from, to, null);
+	}
+
+	/**
+	 * Get the {@link Distance} between {@literal from} and {@literal to}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param from must not be {@literal null}.
+	 * @param to must not be {@literal null}.
+	 * @param metric can be {@literal null} and defaults to {@link DistanceUnit#METERS}.
+	 * @return
+	 */
+	default Mono<Distance> geoDist(ByteBuffer key, ByteBuffer from, ByteBuffer to, Metric metric) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(from, "from must not be null");
+			Assert.notNull(to, "to must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoDist(Mono.just(GeoDistCommand.units(metric).between(from).and(to).forKey(key))).next()
+				.map(CommandResponse::getOutput);
+	}
+
+	/**
+	 * Get the {@link Distance} between {@literal from} and {@literal to}.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<CommandResponse<GeoDistCommand, Distance>> geoDist(Publisher<GeoDistCommand> commands);
 
 }
