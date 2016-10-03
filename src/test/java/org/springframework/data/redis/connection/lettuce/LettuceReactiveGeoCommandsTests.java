@@ -15,6 +15,7 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
 import static org.hamcrest.number.IsCloseTo.*;
 import static org.junit.Assert.*;
@@ -89,6 +90,35 @@ public class LettuceReactiveGeoCommandsTests extends LettuceReactiveCommandsTest
 
 		assertThat(connection.geoCommands().geoDist(KEY_1_BBUFFER, PALERMO.getName(), CATANIA.getName(), Metrics.KILOMETERS)
 				.block().getValue(), is(closeTo(166.27415156960033D, 0.005)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoHash() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		assertThat(
+				connection.geoCommands().geoHash(KEY_1_BBUFFER, Arrays.asList(PALERMO.getName(), CATANIA.getName())).block(),
+				contains("sqc8b49rny0", "sqdtr74hyu0"));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoHashNotExisting() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		assertThat(
+				connection.geoCommands()
+						.geoHash(KEY_1_BBUFFER, Arrays.asList(PALERMO.getName(), ARIGENTO.getName(), CATANIA.getName())).block(),
+				contains("sqc8b49rny0", null, "sqdtr74hyu0"));
 	}
 
 }

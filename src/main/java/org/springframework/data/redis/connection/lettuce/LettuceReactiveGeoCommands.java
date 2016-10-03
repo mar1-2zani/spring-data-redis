@@ -24,6 +24,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.redis.connection.ReactiveGeoCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
 import org.springframework.util.Assert;
@@ -99,6 +100,24 @@ public class LettuceReactiveGeoCommands implements ReactiveGeoCommands {
 
 				return LettuceReactiveRedisConnection.<Distance> monoConverter().convert(result)
 						.map(value -> new CommandResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveGeoCommands#geoHash(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<GeoHashCommand, String>> geoHash(Publisher<GeoHashCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+				return LettuceReactiveRedisConnection.<List<String>> monoConverter()
+						.convert(cmd.geohash(command.getKey().array(),
+								command.getMembers().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])).toList())
+						.map(value -> new MultiValueResponse<GeoHashCommand, String>(command, value));
 			});
 		});
 	}

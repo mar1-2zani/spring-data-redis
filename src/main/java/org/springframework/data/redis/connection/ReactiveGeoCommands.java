@@ -26,6 +26,7 @@ import org.springframework.data.geo.Metric;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.KeyCommand;
+import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisGeoCommands.DistanceUnit;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
@@ -241,5 +242,80 @@ public interface ReactiveGeoCommands {
 	 * @return
 	 */
 	Flux<CommandResponse<GeoDistCommand, Distance>> geoDist(Publisher<GeoDistCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class GeoHashCommand extends KeyCommand {
+
+		private final List<ByteBuffer> members;
+
+		private GeoHashCommand(ByteBuffer key, List<ByteBuffer> members) {
+
+			super(key);
+			this.members = members;
+		}
+
+		public static GeoHashCommand member(ByteBuffer member) {
+			return new GeoHashCommand(null, Collections.singletonList(member));
+		}
+
+		public static GeoHashCommand members(List<ByteBuffer> members) {
+			return new GeoHashCommand(null, new ArrayList<>(members));
+		}
+
+		public GeoHashCommand of(ByteBuffer key) {
+			return new GeoHashCommand(key, members);
+		}
+
+		public List<ByteBuffer> getMembers() {
+			return members;
+		}
+	}
+
+	/**
+	 * Get geohash representation of the position for the one {@literal member}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param member must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<String> geoHash(ByteBuffer key, ByteBuffer member) {
+
+		try {
+			Assert.notNull(member, "member must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoHash(key, Collections.singletonList(member)).map(vals -> vals.isEmpty() ? null : vals.iterator().next());
+	}
+
+	/**
+	 * Get geohash representation of the position for one or more {@literal member}s.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param members must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<String>> geoHash(ByteBuffer key, List<ByteBuffer> members) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(members, "members must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoHash(Mono.just(GeoHashCommand.members(members).of(key))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get geohash representation of the position for one or more {@literal member}s.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<GeoHashCommand, String>> geoHash(Publisher<GeoHashCommand> commands);
 
 }
