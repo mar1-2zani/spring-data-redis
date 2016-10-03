@@ -22,6 +22,7 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.ReactiveGeoCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiValueResponse;
@@ -118,6 +119,28 @@ public class LettuceReactiveGeoCommands implements ReactiveGeoCommands {
 						.convert(cmd.geohash(command.getKey().array(),
 								command.getMembers().stream().map(ByteBuffer::array).toArray(size -> new byte[size][])).toList())
 						.map(value -> new MultiValueResponse<GeoHashCommand, String>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveGeoCommands#geoPos(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<MultiValueResponse<GeoPosCommand, Point>> geoPos(Publisher<GeoPosCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				Observable<List<Point>> result = cmd
+						.geopos(command.getKey().array(),
+								command.getMembers().stream().map(ByteBuffer::array).toArray(size -> new byte[size][]))
+						.map(LettuceConverters::geoCoordinatesToPoint).toList();
+
+				return LettuceReactiveRedisConnection.<List<Point>> monoConverter().convert(result)
+						.map(value -> new MultiValueResponse<>(command, value));
 			});
 		});
 	}

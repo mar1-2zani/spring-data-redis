@@ -17,12 +17,14 @@ package org.springframework.data.redis.connection.lettuce;
 
 import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
+import static org.hamcrest.core.IsNull.*;
 import static org.hamcrest.number.IsCloseTo.*;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.Test;
 import org.springframework.data.geo.Metrics;
@@ -119,6 +121,44 @@ public class LettuceReactiveGeoCommandsTests extends LettuceReactiveCommandsTest
 				connection.geoCommands()
 						.geoHash(KEY_1_BBUFFER, Arrays.asList(PALERMO.getName(), ARIGENTO.getName(), CATANIA.getName())).block(),
 				contains("sqc8b49rny0", null, "sqdtr74hyu0"));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoPos() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		List<Point> result = connection.geoCommands()
+				.geoPos(KEY_1_BBUFFER, Arrays.asList(PALERMO.getName(), CATANIA.getName())).block();
+		assertThat(result.get(0).getX(), is(closeTo(POINT_PALERMO.getX(), 0.005)));
+		assertThat(result.get(0).getY(), is(closeTo(POINT_PALERMO.getY(), 0.005)));
+
+		assertThat(result.get(1).getX(), is(closeTo(POINT_CATANIA.getX(), 0.005)));
+		assertThat(result.get(1).getY(), is(closeTo(POINT_CATANIA.getY(), 0.005)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoPosNonExisting() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+
+		List<Point> result = connection.geoCommands()
+				.geoPos(KEY_1_BBUFFER, Arrays.asList(PALERMO.getName(), ARIGENTO.getName(), CATANIA.getName())).block();
+		assertThat(result.get(0).getX(), is(closeTo(POINT_PALERMO.getX(), 0.005)));
+		assertThat(result.get(0).getY(), is(closeTo(POINT_PALERMO.getY(), 0.005)));
+
+		assertThat(result.get(1), is(nullValue()));
+
+		assertThat(result.get(2).getX(), is(closeTo(POINT_CATANIA.getX(), 0.005)));
+		assertThat(result.get(2).getY(), is(closeTo(POINT_CATANIA.getY(), 0.005)));
 	}
 
 }

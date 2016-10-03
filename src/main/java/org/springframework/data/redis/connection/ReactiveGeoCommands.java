@@ -318,4 +318,79 @@ public interface ReactiveGeoCommands {
 	 */
 	Flux<MultiValueResponse<GeoHashCommand, String>> geoHash(Publisher<GeoHashCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class GeoPosCommand extends KeyCommand {
+
+		private final List<ByteBuffer> members;
+
+		private GeoPosCommand(ByteBuffer key, List<ByteBuffer> members) {
+
+			super(key);
+			this.members = members;
+		}
+
+		public static GeoPosCommand member(ByteBuffer member) {
+			return new GeoPosCommand(null, Collections.singletonList(member));
+		}
+
+		public static GeoPosCommand members(List<ByteBuffer> members) {
+			return new GeoPosCommand(null, new ArrayList<>(members));
+		}
+
+		public GeoPosCommand of(ByteBuffer key) {
+			return new GeoPosCommand(key, members);
+		}
+
+		public List<ByteBuffer> getMembers() {
+			return members;
+		}
+	}
+
+	/**
+	 * Get the {@link Point} representation of positions for the {@literal member}s.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param member must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<Point> geoPos(ByteBuffer key, ByteBuffer member) {
+
+		try {
+			Assert.notNull(member, "member must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoPos(key, Collections.singletonList(member)).map(vals -> vals.isEmpty() ? null : vals.iterator().next());
+	}
+
+	/**
+	 * Get the {@link Point} representation of positions for one or more {@literal member}s.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param members must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<Point>> geoPos(ByteBuffer key, List<ByteBuffer> members) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(members, "members must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoPos(Mono.just(GeoPosCommand.members(members).of(key))).next().map(MultiValueResponse::getOutput);
+	}
+
+	/**
+	 * Get the {@link Point} representation of positions for one or more {@literal member}s.
+	 *
+	 * @param commands must not be {@literal null}.
+	 * @return
+	 */
+	Flux<MultiValueResponse<GeoPosCommand, Point>> geoPos(Publisher<GeoPosCommand> commands);
+
 }
