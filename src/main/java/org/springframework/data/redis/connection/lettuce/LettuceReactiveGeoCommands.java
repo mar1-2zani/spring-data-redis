@@ -22,6 +22,9 @@ import java.util.List;
 import org.reactivestreams.Publisher;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Metric;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.ReactiveGeoCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
@@ -31,6 +34,7 @@ import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
 import org.springframework.util.Assert;
 
 import com.lambdaworks.redis.GeoArgs;
+import com.lambdaworks.redis.GeoWithin;
 
 import reactor.core.publisher.Flux;
 import rx.Observable;
@@ -144,4 +148,68 @@ public class LettuceReactiveGeoCommands implements ReactiveGeoCommands {
 			});
 		});
 	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveGeoCommands#geoRadius(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<CommandResponse<GeoRadiusCommand, GeoResults<GeoLocation<ByteBuffer>>>> geoRadius(
+			Publisher<GeoRadiusCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				GeoArgs geoArgs = LettuceConverters.toGeoArgs(command.getArgs());
+
+				Observable<GeoResults<GeoLocation<ByteBuffer>>> result = cmd
+						.georadius(command.getKey().array(), command.getPoint().getX(), command.getPoint().getY(),
+								command.getDistance().getValue(), LettuceConverters.toGeoArgsUnit(command.getDistance().getMetric()),
+								geoArgs)
+						.map(converter(command.getDistance().getMetric())::convert).toList().map(vals -> new GeoResults<>(vals));
+
+				return LettuceReactiveRedisConnection.<GeoResults<GeoLocation<ByteBuffer>>> monoConverter().convert(result)
+						.map(value -> new CommandResponse<>(command, value));
+			});
+		});
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.ReactiveGeoCommands#geoRadiusByMember(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<CommandResponse<GeoRadiusByMemberCommand, GeoResults<GeoLocation<ByteBuffer>>>> geoRadiusByMember(
+			Publisher<GeoRadiusByMemberCommand> commands) {
+
+		return connection.execute(cmd -> {
+
+			return Flux.from(commands).flatMap(command -> {
+
+				GeoArgs geoArgs = LettuceConverters.toGeoArgs(command.getArgs());
+
+				Observable<GeoResults<GeoLocation<ByteBuffer>>> result = cmd
+						.georadiusbymember(command.getKey().array(), command.getMember().array(), command.getDistance().getValue(),
+								LettuceConverters.toGeoArgsUnit(command.getDistance().getMetric()), geoArgs)
+						.map(converter(command.getDistance().getMetric())::convert).toList().map(vals -> new GeoResults<>(vals));
+
+				return LettuceReactiveRedisConnection.<GeoResults<GeoLocation<ByteBuffer>>> monoConverter().convert(result)
+						.map(value -> new CommandResponse<>(command, value));
+			});
+		});
+	}
+
+	private Converter<GeoWithin<byte[]>, GeoResult<GeoLocation<ByteBuffer>>> converter(Metric metric) {
+
+		return (source) -> {
+
+			Point point = LettuceConverters.geoCoordinatesToPoint(source.coordinates);
+
+			return new GeoResult<GeoLocation<ByteBuffer>>(new GeoLocation<ByteBuffer>(ByteBuffer.wrap(source.member), point),
+					new Distance(source.distance != null ? source.distance : 0D, metric));
+		};
+
+	}
+
 }

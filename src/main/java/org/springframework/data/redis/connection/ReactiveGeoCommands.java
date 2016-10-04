@@ -19,9 +19,14 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResults;
 import org.springframework.data.geo.Metric;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.ReactiveRedisConnection.CommandResponse;
@@ -30,6 +35,8 @@ import org.springframework.data.redis.connection.ReactiveRedisConnection.MultiVa
 import org.springframework.data.redis.connection.ReactiveRedisConnection.NumericResponse;
 import org.springframework.data.redis.connection.RedisGeoCommands.DistanceUnit;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
+import org.springframework.data.redis.connection.RedisGeoCommands.GeoRadiusCommandArgs;
+import org.springframework.data.redis.connection.RedisGeoCommands.GeoRadiusCommandArgs.Flag;
 import org.springframework.util.Assert;
 
 import reactor.core.publisher.Flux;
@@ -393,4 +400,410 @@ public interface ReactiveGeoCommands {
 	 */
 	Flux<MultiValueResponse<GeoPosCommand, Point>> geoPos(Publisher<GeoPosCommand> commands);
 
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class GeoRadiusCommand extends KeyCommand {
+
+		private final Distance distance;
+		private final Point point;
+		private final GeoRadiusCommandArgs args;
+		private final ByteBuffer store;
+		private final ByteBuffer storeDist;
+
+		private GeoRadiusCommand(ByteBuffer key, Point point, Distance distance, GeoRadiusCommandArgs args,
+				ByteBuffer store, ByteBuffer storeDist) {
+			super(key);
+			this.distance = distance;
+			this.point = point;
+			this.args = args == null ? GeoRadiusCommandArgs.newGeoRadiusArgs() : args;
+			this.store = store;
+			this.storeDist = storeDist;
+		}
+
+		public static GeoRadiusCommand within(Distance distance) {
+			return new GeoRadiusCommand(null, null, distance, null, null, null);
+		}
+
+		public static GeoRadiusCommand withinMeters(Double distance) {
+			return within(new Distance(distance, DistanceUnit.METERS));
+		}
+
+		public static GeoRadiusCommand withinKiometers(Double distance) {
+			return within(new Distance(distance, DistanceUnit.KILOMETERS));
+		}
+
+		public static GeoRadiusCommand withinMiles(Double distance) {
+			return within(new Distance(distance, DistanceUnit.MILES));
+		}
+
+		public static GeoRadiusCommand withinFeet(Double distance) {
+			return within(new Distance(distance, DistanceUnit.FEET));
+		}
+
+		public static GeoRadiusCommand within(Circle circle) {
+			return within(circle.getRadius()).from(circle.getCenter());
+		}
+
+		public GeoRadiusCommand from(Point center) {
+			return new GeoRadiusCommand(getKey(), center, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusCommand withFlag(Flag flag) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			args.flags.add(flag);
+
+			return new GeoRadiusCommand(getKey(), point, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusCommand withCoord() {
+			return withFlag(Flag.WITHCOORD);
+		}
+
+		public GeoRadiusCommand withDist() {
+			return withFlag(Flag.WITHDIST);
+		}
+
+		public GeoRadiusCommand withArgs(GeoRadiusCommandArgs args) {
+			return new GeoRadiusCommand(getKey(), point, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusCommand limitTo(Long limit) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			if (limit != null) {
+				args = args.limit(limit);
+			}
+
+			return new GeoRadiusCommand(getKey(), point, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusCommand sort(Direction direction) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			args.sortDirection = direction;
+
+			return new GeoRadiusCommand(getKey(), point, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusCommand orderByDistanceAsc() {
+			return sort(Direction.ASC);
+		}
+
+		public GeoRadiusCommand orderByDistanceDesc() {
+			return sort(Direction.DESC);
+		}
+
+		public GeoRadiusCommand forKey(ByteBuffer key) {
+			return new GeoRadiusCommand(key, point, distance, args, store, storeDist);
+		}
+
+		/**
+		 * <b>NOTE:</b> STORE option is not compatible with WITHDIST, WITHHASH and WITHCOORDS options.
+		 *
+		 * @param key
+		 * @return
+		 */
+		public GeoRadiusCommand storeAt(ByteBuffer key) {
+			return new GeoRadiusCommand(getKey(), point, distance, args, key, storeDist);
+		}
+
+		/**
+		 * <b>NOTE:</b> STOREDIST option is not compatible with WITHDIST, WITHHASH and WITHCOORDS options.
+		 *
+		 * @param key
+		 * @return
+		 */
+		public GeoRadiusCommand storeDistAt(ByteBuffer key) {
+			return new GeoRadiusCommand(getKey(), point, distance, args, store, key);
+		}
+
+		public Direction getDirection() {
+			return args.getSortDirection();
+		}
+
+		public Distance getDistance() {
+			return distance;
+		}
+
+		public Set<Flag> getFlags() {
+			return args.getFlags();
+		}
+
+		public Long getLimit() {
+			return args.getLimit();
+		}
+
+		public Point getPoint() {
+			return point;
+		}
+
+		public ByteBuffer getStore() {
+			return store;
+		}
+
+		public ByteBuffer getStoreDist() {
+			return storeDist;
+		}
+
+		public GeoRadiusCommandArgs getArgs() {
+			return args;
+		}
+
+		private GeoRadiusCommandArgs cloneArgs() {
+
+			if (args == null) {
+				return GeoRadiusCommandArgs.newGeoRadiusArgs();
+			}
+
+			return args.clone();
+		}
+	}
+
+	/**
+	 * Get the {@literal member}s within the boundaries of a given {@link Circle}.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param circle must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<GeoLocation<ByteBuffer>>> geoRadius(ByteBuffer key, Circle circle) {
+		return geoRadius(key, circle, null)
+				.map(res -> res.getContent().stream().map(val -> val.getContent()).collect(Collectors.toList()));
+	}
+
+	/**
+	 * Get the {@literal member}s within the boundaries of a given {@link Circle} applying given parameters.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param circle must not be {@literal null}.
+	 * @param geoRadiusArgs can be {@literal null}.
+	 * @return
+	 */
+	default Mono<GeoResults<GeoLocation<ByteBuffer>>> geoRadius(ByteBuffer key, Circle circle,
+			GeoRadiusCommandArgs geoRadiusArgs) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(circle, "circle must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoRadius(Mono.just(GeoRadiusCommand.within(circle).withArgs(geoRadiusArgs).forKey(key))).next()
+				.map(CommandResponse::getOutput);
+	}
+
+	/**
+	 * Get the {@literal member}s within the boundaries of a given {@link Circle} applying given parameters.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<CommandResponse<GeoRadiusCommand, GeoResults<GeoLocation<ByteBuffer>>>> geoRadius(
+			Publisher<GeoRadiusCommand> commands);
+
+	/**
+	 * @author Christoph Strobl
+	 */
+	public class GeoRadiusByMemberCommand extends KeyCommand {
+
+		private final Distance distance;
+		private final ByteBuffer member;
+		private final GeoRadiusCommandArgs args;
+		private final ByteBuffer store;
+		private final ByteBuffer storeDist;
+
+		private GeoRadiusByMemberCommand(ByteBuffer key, ByteBuffer member, Distance distance, GeoRadiusCommandArgs args,
+				ByteBuffer store, ByteBuffer storeDist) {
+			super(key);
+			this.distance = distance;
+			this.member = member;
+			this.args = args == null ? GeoRadiusCommandArgs.newGeoRadiusArgs() : args;
+			this.store = store;
+			this.storeDist = storeDist;
+		}
+
+		public static GeoRadiusByMemberCommand within(Distance distance) {
+			return new GeoRadiusByMemberCommand(null, null, distance, GeoRadiusCommandArgs.newGeoRadiusArgs(), null, null);
+		}
+
+		public static GeoRadiusByMemberCommand withinMeters(Double distance) {
+			return within(new Distance(distance, DistanceUnit.METERS));
+		}
+
+		public static GeoRadiusByMemberCommand withinKiometers(Double distance) {
+			return within(new Distance(distance, DistanceUnit.KILOMETERS));
+		}
+
+		public static GeoRadiusByMemberCommand withinMiles(Double distance) {
+			return within(new Distance(distance, DistanceUnit.MILES));
+		}
+
+		public static GeoRadiusByMemberCommand withinFeet(Double distance) {
+			return within(new Distance(distance, DistanceUnit.FEET));
+		}
+
+		public GeoRadiusByMemberCommand from(ByteBuffer member) {
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusByMemberCommand withArgs(GeoRadiusCommandArgs args) {
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusByMemberCommand withFlag(Flag flag) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			args.flags.add(flag);
+
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusByMemberCommand withCoord() {
+			return withFlag(Flag.WITHCOORD);
+		}
+
+		public GeoRadiusByMemberCommand withDist() {
+			return withFlag(Flag.WITHDIST);
+		}
+
+		public GeoRadiusByMemberCommand limitTo(Long limit) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			if (limit != null) {
+				args = args.limit(limit);
+			}
+
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusByMemberCommand sort(Direction direction) {
+
+			GeoRadiusCommandArgs args = cloneArgs();
+			args.sortDirection = direction;
+
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, storeDist);
+		}
+
+		public GeoRadiusByMemberCommand orderByDistanceAsc() {
+			return sort(Direction.ASC);
+		}
+
+		public GeoRadiusByMemberCommand orderByDistanceDesc() {
+			return sort(Direction.DESC);
+		}
+
+		public GeoRadiusByMemberCommand forKey(ByteBuffer key) {
+			return new GeoRadiusByMemberCommand(key, member, distance, args, store, storeDist);
+		}
+
+		/**
+		 * <b>NOTE:</b> STORE option is not compatible with WITHDIST, WITHHASH and WITHCOORDS options.
+		 *
+		 * @param key
+		 * @return
+		 */
+		public GeoRadiusByMemberCommand storeAt(ByteBuffer key) {
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, key, storeDist);
+		}
+
+		/**
+		 * <b>NOTE:</b> STOREDIST option is not compatible with WITHDIST, WITHHASH and WITHCOORDS options.
+		 *
+		 * @param key
+		 * @return
+		 */
+		public GeoRadiusByMemberCommand storeDistAt(ByteBuffer key) {
+			return new GeoRadiusByMemberCommand(getKey(), member, distance, args, store, key);
+		}
+
+		public Direction getDirection() {
+			return args.getSortDirection();
+		}
+
+		public Distance getDistance() {
+			return distance;
+		}
+
+		public Set<Flag> getFlags() {
+			return args.getFlags();
+		}
+
+		public Long getLimit() {
+			return args.getLimit();
+		}
+
+		public ByteBuffer getMember() {
+			return member;
+		}
+
+		public ByteBuffer getStore() {
+			return store;
+		}
+
+		public ByteBuffer getStoreDist() {
+			return storeDist;
+		}
+
+		public GeoRadiusCommandArgs getArgs() {
+			return args;
+		}
+
+		private GeoRadiusCommandArgs cloneArgs() {
+
+			if (args == null) {
+				return GeoRadiusCommandArgs.newGeoRadiusArgs();
+			}
+
+			return args.clone();
+		}
+
+	}
+
+	/**
+	 * Get the {@literal member}s within given {@link Distance} from {@literal member} applying given parameters.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param member must not be {@literal null}.
+	 * @return
+	 */
+	default Mono<List<GeoLocation<ByteBuffer>>> geoRadiusByMember(ByteBuffer key, ByteBuffer member, Distance distance) {
+		return geoRadiusByMember(key, member, distance, null)
+				.map(res -> res.getContent().stream().map(val -> val.getContent()).collect(Collectors.toList()));
+	}
+
+	/**
+	 * Get the {@literal member}s within given {@link Distance} from {@literal member} applying given parameters.
+	 *
+	 * @param key must not be {@literal null}.
+	 * @param member must not be {@literal null}.
+	 * @param geoRadiusArgs can be {@literal null}.
+	 * @return
+	 */
+	default Mono<GeoResults<GeoLocation<ByteBuffer>>> geoRadiusByMember(ByteBuffer key, ByteBuffer member,
+			Distance distance, GeoRadiusCommandArgs geoRadiusArgs) {
+
+		try {
+			Assert.notNull(key, "key must not be null");
+			Assert.notNull(member, "member must not be null");
+			Assert.notNull(distance, "distance must not be null");
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
+		}
+
+		return geoRadiusByMember(
+				Mono.just(GeoRadiusByMemberCommand.within(distance).from(member).forKey(key).withArgs(geoRadiusArgs))).next()
+						.map(CommandResponse::getOutput);
+	}
+
+	/**
+	 * Get the {@literal member}s within given {@link Distance} from {@literal member} applying given parameters.
+	 *
+	 * @param commands
+	 * @return
+	 */
+	Flux<CommandResponse<GeoRadiusByMemberCommand, GeoResults<GeoLocation<ByteBuffer>>>> geoRadiusByMember(
+			Publisher<GeoRadiusByMemberCommand> commands);
 }

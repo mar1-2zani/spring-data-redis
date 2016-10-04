@@ -15,11 +15,14 @@
  */
 package org.springframework.data.redis.connection.lettuce;
 
+import static org.hamcrest.collection.IsCollectionWithSize.*;
 import static org.hamcrest.collection.IsIterableContainingInOrder.*;
 import static org.hamcrest.core.Is.*;
 import static org.hamcrest.core.IsNull.*;
 import static org.hamcrest.number.IsCloseTo.*;
 import static org.junit.Assert.*;
+import static org.springframework.data.redis.connection.RedisGeoCommands.DistanceUnit.*;
+import static org.springframework.data.redis.connection.RedisGeoCommands.GeoRadiusCommandArgs.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -27,6 +30,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
+import org.springframework.data.geo.Circle;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResults;
 import org.springframework.data.geo.Metrics;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands.GeoLocation;
@@ -159,6 +165,111 @@ public class LettuceReactiveGeoCommandsTests extends LettuceReactiveCommandsTest
 
 		assertThat(result.get(2).getX(), is(closeTo(POINT_CATANIA.getX(), 0.005)));
 		assertThat(result.get(2).getY(), is(closeTo(POINT_CATANIA.getY(), 0.005)));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusShouldReturnMembersCorrectly() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		assertThat(
+				connection.geoCommands()
+						.geoRadius(KEY_1_BBUFFER, new Circle(new Point(15D, 37D), new Distance(200D, KILOMETERS))).block(),
+				hasSize(3));
+		assertThat(
+				connection.geoCommands()
+						.geoRadius(KEY_1_BBUFFER, new Circle(new Point(15D, 37D), new Distance(150D, KILOMETERS))).block(),
+				hasSize(2));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusShouldReturnDistanceCorrectly() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		GeoResults<GeoLocation<ByteBuffer>> result = connection.geoCommands().geoRadius(KEY_1_BBUFFER,
+				new Circle(new Point(15D, 37D), new Distance(200D, KILOMETERS)), newGeoRadiusArgs().includeDistance()).block();
+
+		assertThat(result.getContent().get(0).getDistance().getValue(), is(closeTo(130.423D, 0.005)));
+		assertThat(result.getContent().get(0).getDistance().getUnit(), is("km"));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusShouldApplyLimit() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		GeoResults<GeoLocation<ByteBuffer>> result = connection.geoCommands().geoRadius(KEY_1_BBUFFER,
+				new Circle(new Point(15D, 37D), new Distance(200D, KILOMETERS)), newGeoRadiusArgs().limit(2)).block();
+
+		assertThat(result.getContent(), hasSize(2));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusByMemberShouldReturnMembersCorrectly() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		List<GeoLocation<ByteBuffer>> result = connection.geoCommands()
+				.geoRadiusByMember(KEY_1_BBUFFER, ARIGENTO.getName(), new Distance(100, KILOMETERS)).block();
+
+		assertThat(result.get(0).getName(), is(ARIGENTO.getName()));
+		assertThat(result.get(1).getName(), is(PALERMO.getName()));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusByMemberShouldReturnDistanceCorrectly() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		GeoResults<GeoLocation<ByteBuffer>> result = connection.geoCommands().geoRadiusByMember(KEY_1_BBUFFER,
+				PALERMO.getName(), new Distance(100, KILOMETERS), newGeoRadiusArgs().includeDistance()).block();
+
+		assertThat(result.getContent(), hasSize(2));
+		assertThat(result.getContent().get(0).getDistance().getValue(), is(closeTo(90.978D, 0.005)));
+		assertThat(result.getContent().get(0).getDistance().getUnit(), is("km"));
+	}
+
+	/**
+	 * @see DATAREDIS-525
+	 */
+	@Test
+	public void geoRadiusByMemberShouldApplyLimit() {
+
+		nativeCommands.geoadd(KEY_1, PALERMO.getPoint().getX(), PALERMO.getPoint().getY(), PALERMO_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, CATANIA.getPoint().getX(), CATANIA.getPoint().getY(), CATANIA_MEMBER_NAME);
+		nativeCommands.geoadd(KEY_1, ARIGENTO.getPoint().getX(), ARIGENTO.getPoint().getY(), ARIGENTO_MEMBER_NAME);
+
+		GeoResults<GeoLocation<ByteBuffer>> result = connection.geoCommands()
+				.geoRadiusByMember(KEY_1_BBUFFER, PALERMO.getName(), new Distance(200, KILOMETERS), newGeoRadiusArgs().limit(2))
+				.block();
+
+		assertThat(result.getContent(), hasSize(2));
 	}
 
 }
