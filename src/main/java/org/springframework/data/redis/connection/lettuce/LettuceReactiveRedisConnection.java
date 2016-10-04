@@ -23,6 +23,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.data.redis.connection.ReactiveGeoCommands;
 import org.springframework.data.redis.connection.ReactiveHashCommands;
+import org.springframework.data.redis.connection.ReactiveHyperLogLogCommands;
 import org.springframework.data.redis.connection.ReactiveKeyCommands;
 import org.springframework.data.redis.connection.ReactiveListCommands;
 import org.springframework.data.redis.connection.ReactiveNumberCommands;
@@ -122,6 +123,11 @@ public class LettuceReactiveRedisConnection implements ReactiveRedisConnection {
 	@Override
 	public ReactiveGeoCommands geoCommands() {
 		return new LettuceReactiveGeoCommands(this);
+	}
+
+	@Override
+	public ReactiveHyperLogLogCommands hyperLogLogCommands() {
+		return new LettuceReactiveHyperLogLogCommands(this);
 	}
 
 	protected RedisClusterReactiveCommands<byte[], byte[]> getCommands() {

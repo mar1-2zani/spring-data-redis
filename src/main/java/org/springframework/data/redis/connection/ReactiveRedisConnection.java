@@ -92,6 +92,13 @@ public interface ReactiveRedisConnection extends Closeable {
 	 */
 	ReactiveGeoCommands geoCommands();
 
+	/**
+	 * Get {@link ReactiveHyperLogLogCommands}.
+	 *
+	 * @return never {@literal null}.
+	 */
+	ReactiveHyperLogLogCommands hyperLogLogCommands();
+
 	static interface Command {
 
 		ByteBuffer getKey();
